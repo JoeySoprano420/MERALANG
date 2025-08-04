@@ -1,0 +1,10 @@
+[TRACE] capsule=filter_image, start
+[IR] loop x from 1 to width - 1
+[IR] loop y from 1 to height - 1
+[IR] call blur_pixel(x, y)
+[IR] val sum = 0
+[IR] derive sum from sum by px
+[IR] avg = sum / 9
+[IR] assign image_out[x][y] = avg
+[TRACE] state = debug → trigger memory inspector on image_out
+[TRACE] capsule=filter_image, end
