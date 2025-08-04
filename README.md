@@ -283,3 +283,305 @@ Runtime toggles, symbolic state awareness, and plugin hooks pave the way for **a
 
 ---
 
+Here are the **complete and detailed setup instructions** for installing, running, building, testing, and using the **MeraLang v1.0 system** on **Windows**, **Linux**, and **macOS**.
+
+---
+
+# 🌐 MeraLang v1.0 — Full Installation & Usage Guide
+
+---
+
+## 📁 FILE STRUCTURE OVERVIEW
+
+```
+MeraLang/
+├── build/                      # Build scripts (.bat / .sh)
+│   ├── build.bat
+│   └── build.sh
+├── installer/                 # Windows installer script
+│   ├── build_installer.bat
+│   └── meralang_installer.iss
+├── meralang-vsix/            # VSCode Extension
+│   ├── package.json
+│   ├── syntaxes/meralang.tmLanguage.json
+│   └── scripts/build_publish.sh
+├── sample/                   # Sample .mera capsules
+│   └── blur_filter.mera
+├── trace_logs/               # Execution trace logs
+│   └── blur_filter.trace
+├── src/                      # Source code of the compiler
+│   ├── main.cpp
+│   ├── lexer.cpp / lexer.h
+│   ├── parser.cpp / parser.h
+│   ├── ir_generator.cpp
+│   ├── nasm_emitter.cpp
+│   ├── llvm_bridge.cpp
+│   └── capsule_runner.cpp
+├── tools/                    # REPL Debugger UI
+│   └── repl_ui.cpp
+├── tests/                    # Test suite
+│   └── test_capsules.cpp
+└── CMakeLists.txt            # Build descriptor
+```
+
+---
+
+## 🪟 WINDOWS INSTALLATION
+
+### Prerequisites:
+
+* [Visual Studio 2022](https://visualstudio.microsoft.com/) (with **C++** and **CMake** workloads)
+* [NASM](https://www.nasm.us/)
+* [LLVM/Clang](https://releases.llvm.org/)
+* [Inno Setup](https://jrsoftware.org/isdl.php) for installer
+* [Node.js + VSCE](https://code.visualstudio.com/api/get-started/your-first-extension)
+
+---
+
+### 🔧 Step-by-Step:
+
+#### 1. **Clone and Build MeraLang Compiler**
+
+```cmd
+cd MeraLang
+build\build.bat
+```
+
+This will:
+
+* Generate the build directory
+* Compile the entire MeraLang compiler via Visual Studio CMake generator
+* Produce: `meralang.exe`, `repl_ui.exe`
+
+#### 2. **Run REPL or Capsule**
+
+```cmd
+tools\repl_ui.exe
+```
+
+Type:
+
+```
+sample\blur_filter.mera
+```
+
+#### 3. **Run Capsule Directly**
+
+```cmd
+meralang.exe sample\blur_filter.mera
+```
+
+---
+
+#### 4. **Run Unit Tests**
+
+```cmd
+build\tests\Debug\test_capsules.exe
+```
+
+---
+
+#### 5. **Build Windows Installer**
+
+```cmd
+installer\build_installer.bat
+```
+
+Creates `meralang-setup.exe`
+
+---
+
+#### 6. **Build and Install VSCode Extension**
+
+```bash
+cd meralang-vsix
+bash scripts/build_publish.sh
+```
+
+Then run:
+
+```bash
+code --install-extension meralang-extension-1.0.0.vsix
+```
+
+---
+
+## 🐧 LINUX INSTALLATION
+
+### Prerequisites:
+
+```bash
+sudo apt update
+sudo apt install build-essential cmake clang llvm nasm nodejs npm
+```
+
+---
+
+### 🔧 Step-by-Step:
+
+#### 1. **Clone and Build MeraLang**
+
+```bash
+cd MeraLang
+bash build/build.sh
+```
+
+This generates `meralang` and `repl_ui` binaries.
+
+#### 2. **Run REPL**
+
+```bash
+./tools/repl_ui
+```
+
+Or run:
+
+```bash
+./meralang sample/blur_filter.mera
+```
+
+---
+
+#### 3. **Run Tests**
+
+```bash
+./tests/test_capsules
+```
+
+---
+
+#### 4. **Install VSCode Extension**
+
+```bash
+cd meralang-vsix
+bash scripts/build_publish.sh
+code --install-extension meralang-extension-1.0.0.vsix
+```
+
+---
+
+## 🍎 macOS INSTALLATION
+
+### Prerequisites:
+
+* [Xcode Command Line Tools](https://developer.apple.com/xcode/)
+* Homebrew (install from [https://brew.sh/](https://brew.sh/))
+
+```bash
+brew install cmake llvm nasm node
+```
+
+---
+
+### 🔧 Step-by-Step:
+
+#### 1. **Build the Compiler**
+
+```bash
+cd MeraLang
+bash build/build.sh
+```
+
+#### 2. **Run REPL**
+
+```bash
+./tools/repl_ui
+```
+
+#### 3. **Execute Capsule**
+
+```bash
+./meralang sample/blur_filter.mera
+```
+
+#### 4. **Run Tests**
+
+```bash
+./tests/test_capsules
+```
+
+---
+
+#### 5. **VSCode Extension Setup**
+
+```bash
+cd meralang-vsix
+bash scripts/build_publish.sh
+code --install-extension meralang-extension-1.0.0.vsix
+```
+
+---
+
+## 🔬 LANGUAGE USAGE EXAMPLES
+
+### 📜 Declaring a Variable
+
+```mera
+val x = 10
+```
+
+### 🧮 Arithmetic
+
+```mera
+derive sum from sum by x
+val avg = sum / 9
+```
+
+### 🔁 Loops
+
+```mera
+loop i from 0 to 10:
+  say "Step {i}"
+end
+```
+
+### 📦 Capsule Structure
+
+```mera
+capsule main:
+  val x = 5
+  say "Hello"
+end
+```
+
+### 🪛 Debugging
+
+```mera
+when state == "debug":
+  inspect memory
+end
+```
+
+---
+
+## ✅ VERIFYING YOUR SETUP
+
+To verify full system health:
+
+```bash
+meralang sample/blur_filter.mera > out.asm
+cat trace_logs/blur_filter.trace
+./tests/test_capsules
+```
+
+---
+
+## 📦 WHAT YOU GET
+
+| Feature              | Description               |
+| -------------------- | ------------------------- |
+| `meralang.exe`       | Compiler CLI              |
+| `repl_ui.exe`        | Interactive REPL debugger |
+| `.vsix`              | VSCode extension          |
+| `meralang-setup.exe` | Installer                 |
+| `test_capsules`      | Testing framework         |
+| `.mera` files        | Symbolic capsules         |
+| `.trace` files       | Execution logs            |
+
+
+---
+
+
+Example of VS Code extension / Banner:
+
+<img width="1024" height="1024" alt="ChatGPT Image Aug 4, 2025, 05_15_21 AM" src="https://github.com/user-attachments/assets/ae2b2104-9aae-4fda-b493-2ffdad200368" />
