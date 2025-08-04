@@ -714,3 +714,16 @@ Example of VS Code extension / Banner:
 ![License](https://img.shields.io/github/license/JoeySoprano420/MERALANG)
 ![Stars](https://img.shields.io/github/stars/JoeySoprano420/MERALANG?style=social)
 ![Forks](https://img.shields.io/github/forks/JoeySoprano420/MERALANG?style=social)
+
+
+
+
+
+📦 VSCode Extension
+
+cd meralang-vsix
+bash scripts/build_publish.sh
+
+
+
+
