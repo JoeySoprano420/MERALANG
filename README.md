@@ -705,3 +705,12 @@ cat trace_logs/blur_filter.trace
 Example of VS Code extension / Banner:
 
 <img width="1024" height="1024" alt="ChatGPT Image Aug 4, 2025, 05_15_21 AM" src="https://github.com/user-attachments/assets/ae2b2104-9aae-4fda-b493-2ffdad200368" />
+
+
+
+![Build](https://img.shields.io/badge/build-passing-brightgreen)
+![Platform](https://img.shields.io/badge/platform-cross--platform-blue)
+![VSIX](https://img.shields.io/badge/vscode-extension-orange)
+![License](https://img.shields.io/github/license/JoeySoprano420/MERALANG)
+![Stars](https://img.shields.io/github/stars/JoeySoprano420/MERALANG?style=social)
+![Forks](https://img.shields.io/github/forks/JoeySoprano420/MERALANG?style=social)
