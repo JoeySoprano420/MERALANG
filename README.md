@@ -260,6 +260,126 @@ end
 - Educational tooling for teaching compiler theory and systems programming.
 - Adaptive runtime for AI and emergent systems.
 
+Certainly. Here’s a clear, structured breakdown of DGs, SAN, and DLMT — the three central concepts powering MeraLang’s hybrid execution engine:
+
+⸻
+
+🧠 DGs — Dodecagram IR (Intermediate Representation)
+
+Stands for:
+Dodecagram (12-sided symbol) → Represents a base-12 symbolic tracing model used as the introspective layer of MeraLang.
+
+🔍 What It Is:
+
+A symbolic execution layer that maps every action in your code to a traceable, reversible node, often in a base-12 format. DGs function like a memory-inspectable thought map of your program.
+
+🧠 Features:
+	•	Symbolic Tracing: Captures what the code means, not just what it does
+	•	Checkpointing & Replay: DGs store execution states for deterministic debugging
+	•	DG Nodes include:
+	•	VAL_INIT – variable declarations
+	•	FLOW_LOOP – loop structures
+	•	TRACE_DERIVE – symbolic arithmetic like derive sum from sum by px
+	•	DEBUG_WHEN – conditional state-based triggers
+	•	REWIND_STATE – rollback triggers
+	•	Base-12 Numerics: Reflects cyclic symbolic execution (instead of binary 0/1 logic)
+
+🔁 Example:
+
+derive sum from sum by px
+
+🔄 becomes:
+
+TRACE_DERIVE("sum", "sum", "px")
+
+🧠 Used for introspective debugging, symbolic rollback, and program visualization.
+
+⸻
+
+🛠️ SAN — Shorthand Assembly Notation
+
+Stands for:
+Shorthand Assembly Notation
+
+🧾 What It Is:
+
+A readable pseudo-assembly syntax that maps high-level .mera constructs to low-level instructions without requiring direct use of raw NASM/MASM syntax.
+
+🧱 Benefits:
+	•	Friendly for systems programmers
+	•	Readable enough for education
+	•	Easily convertible to NASM, LLVM IR, or bytecode
+
+🔧 SAN Instruction Types:
+
+SAN Opcode	Meaning	x86 Equivalent
+ADD_VAR x, y	x += y	mov eax, [x]; add eax, [y]
+DIV_CONST x, c	x = x / c	mov eax, [x]; mov ecx, c; div ecx
+MOV_MEM dst, s	dst = s (direct memory move)	mov [dst], [s]
+
+🧠 Example:
+
+val avg = sum / 9
+
+➡️
+
+DIV_CONST sum, 9
+MOV_MEM avg, eax
+
+🔌 Used for bridging between symbolic MeraLang code and real-world assembly.
+
+⸻
+
+⚙️ DLMT — Direct-Link Mapping Table
+
+Stands for:
+Direct-Link Mapping Table
+
+📊 What It Is:
+
+A performance mapping system that directly links high-level MeraLang constructs to platform-specific, optimized assembly sequences.
+
+Think of DLMT as the assembly turbocharger of MeraLang.
+
+🔧 Purpose:
+	•	Maximize performance in numerical and I/O-heavy operations
+	•	Allow hotspot toggling via optimize keyword
+	•	Fully supports:
+	•	SIMD (Single Instruction Multiple Data)
+	•	AVX (Advanced Vector Extensions)
+	•	FMA (Fused Multiply Add)
+
+🔂 Example Mapping:
+
+MeraLang	DLMT Mapping	x86 Equivalent
+val x = 5	MOV_CONST x, 5	mov dword [x], 5
+derive sum from a by b	ADD_VAR a, b	mov eax, [a]; add eax, [b]
+
+
+⸻
+
+🔄 Interplay Between the Three
+
+Layer	Purpose	Tools
+DG IR	Symbolic introspection + rewind engine	trace, rewind, inspect
+SAN	Human-readable assembly	emit_nasm, visual_debug
+DLMT	Raw performance mapping to CPU/GPU	optimize, emit_asm, JIT
+
+
+⸻
+
+🧩 Summary Table
+
+Component	Stands For	Main Use	Analogy
+DG	Dodecagram IR	Symbolic tracing & debugging	Abstract syntax tree + time machine
+SAN	Shorthand Assembly Notation	Human-friendly low-level ops	Assembly with comments
+DLMT	Direct-Link Mapping Table	Optimized real-world machine code	Compiled turbo mode
+
+
+⸻
+
+
+
 ---
 
 ## 🔍 Expansion: Why MeraLang Matters
