@@ -1,0 +1,20 @@
+{
+  "name": "meralang-extension",
+  "displayName": "MeraLang Capsule Debugger",
+  "description": "Interactive REPL + syntax highlighting + capsule debugger for .mera files",
+  "version": "1.0.0",
+  "engines": { "vscode": ">=1.80.0" },
+  "categories": ["Programming Languages", "Debuggers"],
+  "contributes": {
+    "languages": [{ "id": "meralang", "extensions": [".mera"], "aliases": ["MeraLang"] }],
+    "grammars": [{ "language": "meralang", "scopeName": "source.mera", "path": "./syntaxes/meralang.tmLanguage.json" }],
+    "commands": [{
+      "command": "meralang.startRepl",
+      "title": "Start MeraLang REPL"
+    }]
+  },
+  "activationEvents": ["onLanguage:meralang"],
+  "main": "./out/meralang-debugger-ui.js",
+  "scripts": { "vscode:prepublish": "npm run compile" },
+  "devDependencies": { "@types/vscode": "^1.80.0" }
+}
