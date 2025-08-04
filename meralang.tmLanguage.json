@@ -1,0 +1,33 @@
+{
+  "name": "MeraLang",
+  "scopeName": "source.mera",
+  "fileTypes": ["mera"],
+  "patterns": [
+    {
+      "match": "\\b(val|loop|macro|capsule|say|derive|try|catch|rewind|when|optimize|inspect|memwrite)\\b",
+      "name": "keyword.control.mera"
+    },
+    {
+      "match": "\\b(int|float|string|bool)\\b",
+      "name": "storage.type.mera"
+    },
+    {
+      "match": "\".*?\"",
+      "name": "string.quoted.double.mera"
+    },
+    {
+      "match": "\\b[0-9]+\\b",
+      "name": "constant.numeric.mera"
+    },
+    {
+      "match": "#.*$",
+      "name": "comment.line.number-sign.mera"
+    },
+    {
+      "match": "\\b(true|false|null)\\b",
+      "name": "constant.language.mera"
+    }
+  ],
+  "repository": {},
+  "uuid": "08d1f9b3-4306-44c6-a011-abc123456789"
+}
