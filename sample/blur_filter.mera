@@ -1,0 +1,19 @@
+macro blur_pixel(x, y):
+  val sum = 0
+  loop dx from -1 to 1:
+    loop dy from -1 to 1:
+      val px = image[x + dx][y + dy]
+      derive sum from sum by px
+  val avg = sum / 9
+  return avg
+end
+
+capsule filter_image:
+  loop x from 1 to width - 1:
+    loop y from 1 to height - 1:
+      val blurred = blur_pixel(x, y)
+      image_out[x][y] = blurred
+  when state == "debug":
+    inspect image_out
+  end
+end
