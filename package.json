@@ -1,0 +1,33 @@
+{
+  "name": "meralang",
+  "displayName": "MeraLang Syntax Highlighting",
+  "description": "Syntax highlighting and introspection support for MeraLang.",
+  "version": "0.1.0",
+  "publisher": "joeysoprano",
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "meralang",
+        "aliases": ["MeraLang", "mera"],
+        "extensions": [".mera"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "meralang",
+        "scopeName": "source.mera",
+        "path": "./syntaxes/meralang.tmLanguage.json"
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JoeySoprano420/MERALANG"
+  },
+  "icon": "icon.png"
+}
