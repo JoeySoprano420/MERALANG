@@ -727,3 +727,14 @@ bash scripts/build_publish.sh
 
 
 
+🧩 Contribution Guidelines
+
+Submit PRs to main with clear commit messages
+
+Include test cases for any new feature
+
+Run tests before submitting
+
+
+
+
