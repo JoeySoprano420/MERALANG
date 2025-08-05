@@ -1,7 +1,6 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <vector>
 #include "lexer.h"
 #include "parser.h"
 #include "emitter.h"
@@ -24,9 +23,9 @@ int main(int argc, char* argv[]) {
     auto ast = parse(tokens);
 
     if (argc > 2 && std::string(argv[2]) == "--emit-nasm") {
-        std::string nasm = emit_nasm(ast);
+        auto er = emit_full(ast);
         std::ofstream out("output.asm");
-        out << nasm;
+        out << er.nasm;
         std::cout << "NASM written to output.asm\n";
         return 0;
     }
