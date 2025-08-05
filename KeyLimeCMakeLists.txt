@@ -1,63 +1,62 @@
-cmake_minimum_required(VERSION 3.15)
-project(MeraLang LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.14)
+project(KeyLimeLW VERSION 0.1 LANGUAGES CXX
+    DESCRIPTION "Key Lime LW: Lightweight MeraLang Capsule Compiler"
+)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# --- C++ Standard ---
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# --- Compiler warnings ---
-if(MSVC)
-    add_compile_options(/W4 /WX)
-else()
-    add_compile_options(-Wall -Wextra -Wpedantic -Werror)
-endif()
+# --- Output directories ---
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-# --- Core sources ---
-add_executable(meralang
+# --- Optional features ---
+option(ENABLE_SYMBOLIC_TRACE "Enable symbolic tracing" ON)
+option(ENABLE_DLMT_FASTPATH "Enable DLMT fastpath" OFF)
+option(ENABLE_SAN_EMITTER "Enable SAN emitter" ON)
+option(ENABLE_DLMT_MAPPER "Enable DLMT mapper" ON)
+option(ENABLE_DG_TRACER "Enable DG tracer" ON)
+
+# --- Source files ---
+file(GLOB_RECURSE SOURCES src/*.cpp include/*.h)
+
+# --- Main executable ---
+add_executable(keylime
     src/main.cpp
     src/lexer.cpp
     src/parser.cpp
-    src/ir_generator.cpp
-    src/nasm_emitter.cpp
-    src/llvm_bridge.cpp
+    $<$<BOOL:${ENABLE_SAN_EMITTER}>:src/san_emitter.cpp>
+    $<$<BOOL:${ENABLE_DLMT_MAPPER}>:src/dlmt_mapper.cpp>
+    $<$<BOOL:${ENABLE_DG_TRACER}>:src/dg_tracer.cpp>
     src/capsule_runner.cpp
 )
 
-# --- Tools: REPL Debugger UI ---
-add_executable(repl_ui
-    tools/repl_ui.cpp
-    src/capsule_runner.cpp
-)
+target_include_directories(keylime PRIVATE include)
+
+# --- Conditional flags ---
+if(ENABLE_SYMBOLIC_TRACE)
+    target_compile_definitions(keylime PRIVATE DG_TRACE_ENABLED=1)
+endif()
+
+if(ENABLE_DLMT_FASTPATH)
+    target_compile_definitions(keylime PRIVATE DLMT_FASTPATH=1)
+endif()
 
 # --- Tests ---
 enable_testing()
-add_executable(test_capsules
-    tests/test_capsules.cpp
-    src/capsule_runner.cpp
-)
-add_test(NAME CapsuleTests COMMAND test_capsules)
+add_subdirectory(tests)
 
-# --- Includes (if using headers in include/) ---
-target_include_directories(meralang PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(repl_ui PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_capsules PRIVATE ${CMAKE_SOURCE_DIR}/src)
+# --- Install examples and headers ---
+install(DIRECTORY examples/ DESTINATION share/keylimelw/examples)
+install(DIRECTORY include/ DESTINATION include/keylimelw)
 
-# --- LLVM (optional, if using LLVM IR output) ---
-find_package(LLVM REQUIRED CONFIG)
-if(LLVM_FOUND)
-    message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
-    target_include_directories(meralang PRIVATE ${LLVM_INCLUDE_DIRS})
-    target_link_directories(meralang PRIVATE ${LLVM_LIBRARY_DIRS})
-    target_compile_definitions(meralang PRIVATE ${LLVM_DEFINITIONS})
-    llvm_map_components_to_libnames(llvm_libs support core irreader)
-    target_link_libraries(meralang PRIVATE ${llvm_libs})
-endif()
+# --- Install binary ---
+install(TARGETS keylime DESTINATION bin)
 
-# --- Install targets (optional) ---
-install(TARGETS meralang repl_ui test_capsules
-        RUNTIME DESTINATION bin)
-
-# --- Output directory ---
-set_target_properties(meralang repl_ui test_capsules
-    PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
-)
+# --- Packaging ---
+set(CPACK_PACKAGE_NAME "KeyLimeLW")
+set(CPACK_PACKAGE_VERSION "0.1")
+set(CPACK_PACKAGE_DESCRIPTION "Key Lime LW: Lightweight MeraLang Capsule Compiler")
+set(CPACK_GENERATOR "ZIP;TGZ")
+include(CPack)
