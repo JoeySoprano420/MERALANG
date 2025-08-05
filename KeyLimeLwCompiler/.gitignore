@@ -1,0 +1,6 @@
+/build/
+/*.exe
+/*.obj
+/output.asm
+output.obj
+output.exe
