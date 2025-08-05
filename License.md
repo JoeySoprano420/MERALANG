@@ -1,21 +1,6 @@
-# License-MODIFIED QSRLC
-MODIFIED QSRLC extends the QSR concept to longer code snippets, permitting the use OF THE CODE IN IT'S ENTIRTY. It maintains the risk disclaimer, strict conditions on alterations AND USE, and requires proper attribution. Legal consequences may follow non-compliance.
-
-MODIFIED Quick-Sample-Reference Long-code (QSRLC) License V1.0.1
-
-Permission is hereby granted, free of charge, to use the code. Any use of the code is at your own risk, and the code is provided as-is, without promises or commitments. Neither the original author nor subsequent users can be held liable for any flaws, harm, or damage, and are not responsible for the intentions of recipients or users. The code may be altered, and the original author must be cited. Users must strictly adhere to this license or face possible legal prosecution.
-
-This license must be posted with the reuse of all code covered by this license.
-
-“This work is licensed for personal and commercial use only. Any commercial use, including but not limited to selling, reselling, or incorporating the work into a product for sale, is strictly prohibited WITHOUT EXPRESS WRITTEN CONSENT BY THE ORIGINAL AUTHOR.”
-
-
-
-
-
 SOVEREIGN UNIVERSAL ENTITY TECHNICAL LICENSE (S.U.E.T.) — v1.0
 Effective Date: [08/04/2025]
-Copyright (c) [2025] [Joey Soprano 420]
+Copyright (c) [2025] [Joey Soprano]
 
 This license allows free use, adaptation, and distribution of the licensed work under conditions of attribution, name integrity, and contingent trade protection. It is designed to safeguard the sovereign identity of creators while encouraging open creative collaboration and universal innovation.
 
@@ -34,7 +19,7 @@ Subject to the terms of this License, the Licensor grants all Users the followin
 
 All copies and substantial uses of the Work must include visible attribution as follows:
 
-“Original Work by Joey Soprano 420], licensed under the S.U.E.T. License.”
+“Original Work by Joey Soprano], licensed under the S.U.E.T. License.”
 
 Shortened or inline forms are allowed where necessary, but attribution must be reasonably prominent.
 
