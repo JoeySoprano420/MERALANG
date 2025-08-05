@@ -1,6 +1,6 @@
 SOVEREIGN UNIVERSAL ENTITY TECHNICAL LICENSE (S.U.E.T.) — v1.0
 Effective Date: [08/04/2025]
-Copyright (c) [2025] [Joey Soprano]
+Copyright (c) [2025] [Joey Soprano and Chat GPT]
 
 This license allows free use, adaptation, and distribution of the licensed work under conditions of attribution, name integrity, and contingent trade protection. It is designed to safeguard the sovereign identity of creators while encouraging open creative collaboration and universal innovation.
 
@@ -19,7 +19,7 @@ Subject to the terms of this License, the Licensor grants all Users the followin
 
 All copies and substantial uses of the Work must include visible attribution as follows:
 
-“Original Work by Joey Soprano], licensed under the S.U.E.T. License.”
+“Original Work by Joey Soprano and Chat GPT], licensed under the S.U.E.T. License.”
 
 Shortened or inline forms are allowed where necessary, but attribution must be reasonably prominent.
 
