@@ -11,7 +11,7 @@ if "%ARCH%"=="AMD64" (
     set ENABLE_SYMBOLIC_TRACE=OFF
 )
 
-:: LLVM detection (basic)
+:: LLVM detection
 where llvm-config >nul 2>nul
 if %ERRORLEVEL%==0 (
     set ENABLE_LLVM=ON
@@ -32,5 +32,18 @@ cmake .. -G "Ninja" ^
 
 :: Build
 cmake --build . --target meralang repl_ui test_capsules
+
+:: Post-build: generate .capsule binaries
+mkdir ..\dist
+for %%f in (..\examples\*.ml) do (
+    echo Compiling %%~nxf...
+    .\bin\meralang %%f -o ..\dist\%%~nf.capsule
+)
+
+:: Optional: run symbolic trace
+if "%ENABLE_SYMBOLIC_TRACE%"=="ON" (
+    echo Running symbolic trace...
+    .\bin\meralang --trace ..\examples\trace_test.ml > ..\dist\trace_log.txt
+)
 
 endlocal
