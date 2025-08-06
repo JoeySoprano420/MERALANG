@@ -1,0 +1,97 @@
+capsule OpcodeImporter {
+    import OpcodeDatabase
+    import JSON
+
+    // Load opcodes from JSON file and generate opcode table entries dynamically
+    func import_from_json(json_path: string) {
+        val json_text = file_read_text(json_path)
+        val json_obj = JSON.parse(json_text)
+
+        OpcodeDatabase.opcode_table.clear()
+
+        for opcode_entry in json_obj["opcodes"] {
+            val mnemonic = opcode_entry["mnemonic"].to_lower()
+            val operand_types = opcode_entry["operand_types"].map(x => x.to_string())
+            val encoding_spec = opcode_entry["encoding_spec"]
+
+            // Create encoder function closure based on encoding_spec
+            val encode_func = create_encoder_from_spec(encoding_spec)
+
+            OpcodeDatabase.opcode_table.append(OpcodeDatabase.OpcodeEntry{
+                mnemonic: mnemonic,
+                operand_patterns: operand_types,
+                encode_func: encode_func
+            })
+        }
+    }
+
+    // Dynamic encoder generation based on encoding spec
+    func create_encoder_from_spec(spec: dict) -> func(list<Parser.Operand>, int) -> bytes {
+        return func(operands: list<Parser.Operand>, addr: int) -> bytes {
+            var result = bytes()
+
+            // Add prefixes if any
+            if spec.contains_key("prefixes") {
+                for p in spec["prefixes"] {
+                    result.append(parse_hex_byte(p))
+                }
+            }
+
+            // Add opcode bytes
+            for b in spec["opcode"] {
+                result.append(parse_hex_byte(b))
+            }
+
+            // Handle ModR/M and SIB bytes per spec
+            if spec.contains_key("modrm") {
+                // Simple ModR/M encoding example: mod=3, reg=opcode reg field, rm=operand reg code
+                val mod = 0xC0
+                val reg_field = get_reg_code(operands[spec["modrm"]["reg_operand_index"]].text)
+                val rm_field = get_reg_code(operands[spec["modrm"]["rm_operand_index"]].text)
+                val modrm = mod | (reg_field << 3) | rm_field
+                result.append(modrm)
+            }
+
+            // Append immediate bytes if specified
+            if spec.contains_key("imm_size") {
+                val imm_val = parse_imm(operands[-1].text)
+                val imm_bytes = encode_imm(imm_val, spec["imm_size"])
+                result.extend(imm_bytes)
+            }
+
+            return result
+        }
+    }
+
+    func parse_hex_byte(s: string) -> int {
+        if s.starts_with("0x") {
+            return int(s, 16)
+        }
+        return int(s)
+    }
+
+    func get_reg_code(reg: string) -> int {
+        // Simplified register code map
+        val reg_map = {
+            "eax": 0, "ecx": 1, "edx": 2, "ebx": 3,
+            "esp": 4, "ebp": 5, "esi": 6, "edi": 7
+        }
+        return reg_map.get(reg.to_lower(), 0)
+    }
+
+    func parse_imm(text: string) -> int {
+        if text.starts_with("0x") {
+            return int(text, 16)
+        }
+        return int(text)
+    }
+
+    func encode_imm(val: int, size_bits: int) -> bytes {
+        val size_bytes = size_bits / 8
+        var bytes = bytes()
+        for i in 0 .. size_bytes - 1 {
+            bytes.append((val >> (i * 8)) & 0xFF)
+        }
+        return bytes
+    }
+}
