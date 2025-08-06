@@ -1,0 +1,33 @@
+capsule Lexer {
+    var tokens: list = []
+    var current_line: int = 1
+
+    // Simple regex or split based tokenizer for assembly source lines
+    func tokenize_line(line: string) {
+        val trimmed = line.trim()
+        if trimmed == "" || trimmed.starts_with(";") {
+            return
+        }
+        val parts = trimmed.split_whitespace()
+        for part in parts {
+            tokens.append({line: current_line, text: part})
+        }
+        current_line += 1
+    }
+
+    func tokenize(source: string) {
+        val lines = source.split("\n")
+        for line in lines {
+            tokenize_line(line)
+        }
+    }
+
+    func next_token() -> string {
+        if tokens.length == 0 {
+            return null
+        }
+        val t = tokens[0]
+        tokens = tokens[1:]
+        return t.text
+    }
+}
