@@ -1,68 +1,80 @@
 capsule Lexer {
-    var tokens: list<{line:int,text:string}> = []
+    var tokens: list<{line:int, text:string, type:string}> = []
     var current_line: int = 1
 
+    // Token types: IDENTIFIER, NUMBER, STRING, COMMA, COLON, DIRECTIVE, MACRO, COMMENT, EOF...
+
     func tokenize_line(line: string) {
-        val trimmed = line.trim()
-        if trimmed == "" || trimmed.starts_with(";") {
-            return
-        }
-        // Split by whitespace, also keep punctuation as separate tokens (e.g., ',', ':')
-        val raw_tokens = []
-        var temp = ""
-        for ch in trimmed {
+        var pos = 0
+        val len = line.length
+        while pos < len {
+            val ch = line[pos]
             if ch.is_whitespace() {
-                if temp != "" {
-                    raw_tokens.append(temp)
-                    temp = ""
-                }
-            } else if ch == ',' || ch == ':' {
-                if temp != "" {
-                    raw_tokens.append(temp)
-                    temp = ""
-                }
-                raw_tokens.append(ch.to_string())
-            } else {
-                temp += ch
+                pos += 1
+                continue
             }
-        }
-        if temp != "" {
-            raw_tokens.append(temp)
-        }
-        // Append tokens with line info
-        for t in raw_tokens {
-            tokens.append({line: current_line, text: t})
+            if ch == ';' { // Comment rest of line
+                break
+            }
+            if ch == ',' {
+                tokens.append({line: current_line, text: ",", type: "COMMA"})
+                pos += 1
+                continue
+            }
+            if ch == ':' {
+                tokens.append({line: current_line, text: ":", type: "COLON"})
+                pos += 1
+                continue
+            }
+            if ch == '"' { // String literal
+                var start = pos + 1
+                var end = start
+                while end < len && line[end] != '"' {
+                    end += 1
+                }
+                if end == len {
+                    error("Unterminated string literal at line " + current_line)
+                }
+                val str_lit = line.substr(start, end - start)
+                tokens.append({line: current_line, text: str_lit, type: "STRING"})
+                pos = end + 1
+                continue
+            }
+            // Identifier or number
+            var start = pos
+            while pos < len && !line[pos].is_whitespace() && !",:;\"".contains(line[pos]) {
+                pos += 1
+            }
+            val word = line.substr(start, pos - start)
+            val typ = if word.starts_with(".") then "DIRECTIVE"
+                      else if word.to_upper() == "MACRO" then "MACRO"
+                      else if word.to_upper() == "ENDM" then "ENDM"
+                      else if word.to_upper() in ["IF", "ELSE", "ENDIF"] then "COND"
+                      else if word.matches_number() then "NUMBER"
+                      else "IDENTIFIER"
+            tokens.append({line: current_line, text: word, type: typ})
         }
     }
 
     func tokenize(source: string) {
+        tokens.clear()
+        current_line = 1
         val lines = source.split("\n")
         for line in lines {
             tokenize_line(line)
             current_line += 1
         }
+        tokens.append({line: current_line, text: "", type: "EOF"})
     }
 
-    func peek() -> string? {
+    func peek() -> {line:int, text:string, type:string}? {
+        return tokens.length > 0 ? tokens[0] : null
+    }
+
+    func consume() -> {line:int, text:string, type:string}? {
         if tokens.length == 0 {
             return null
         }
-        return tokens[0].text
-    }
-
-    func consume() -> string? {
-        if tokens.length == 0 {
-            return null
-        }
-        val t = tokens[0]
-        tokens = tokens[1..]
-        return t.text
-    }
-
-    func expect(value: string) {
-        val t = consume()
-        if t == null || t.to_lower() != value.to_lower() {
-            error("Expected token '" + value + "', got '" + (t ?? "EOF") + "'")
-        }
+        return tokens.pop(0)
     }
 }
