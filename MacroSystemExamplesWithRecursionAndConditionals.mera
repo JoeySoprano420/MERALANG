@@ -1,0 +1,14 @@
+; Macro demonstrating recursion and conditional assembly in source.asm
+
+MACRO factorial(n)
+    IF n == 0
+        mov eax, 1
+    ELSE
+        factorial(n - 1)
+        mul n
+    ENDIF
+ENDM
+
+start:
+    factorial(5)
+    call exit_process
