@@ -1,0 +1,32 @@
+capsule DebuggerUI {
+    var breakpoints: set<int> = {}
+    var watch_variables: dict<string, any> = {}
+
+    func toggle_breakpoint(addr: int) {
+        if breakpoints.contains(addr) {
+            breakpoints.remove(addr)
+        } else {
+            breakpoints.add(addr)
+        }
+    }
+
+    func list_breakpoints() -> list<int> {
+        return breakpoints.to_list()
+    }
+
+    func update_watch_variable(name: string, value: any) {
+        watch_variables[name] = value
+    }
+
+    func display_state(pc: int, registers: dict<string, int>) {
+        say("PC: " + pc.to_string())
+        for (reg, val) in registers {
+            say(reg + ": " + val.to_string())
+        }
+        say("Breakpoints: " + breakpoints.to_string())
+        say("Watch Variables:")
+        for (name, val) in watch_variables {
+            say("  " + name + " = " + val.to_string())
+        }
+    }
+}
