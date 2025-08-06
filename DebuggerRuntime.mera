@@ -1,0 +1,62 @@
+capsule DebuggerRuntime {
+    var breakpoints: set<int> = {}
+    var watch_vars: dict<string, int64> = {}
+    var current_pc: int = 0
+    var registers: dict<string, int64> = {}
+
+    func add_breakpoint(addr: int) { breakpoints.add(addr) }
+    func remove_breakpoint(addr: int) { breakpoints.remove(addr) }
+    func check_breakpoint(addr: int) -> bool { return breakpoints.contains(addr) }
+
+    func update_register(name: string, value: int64) { registers[name] = value }
+    func get_register(name: string) -> int64 { return registers.get(name, 0) }
+
+    func on_instruction(addr: int) {
+        current_pc = addr
+        if check_breakpoint(addr) {
+            pause_execution()
+        }
+    }
+
+    func pause_execution() {
+        say("Paused at 0x" + current_pc.to_string(16))
+        // Hook UI event or CLI input to allow user to step, continue, inspect
+    }
+}
+
+capsule DebuggerGUI {
+    import DebuggerRuntime
+
+    func render() {
+        draw_window("Debugger")
+
+        draw_text("PC: 0x" + DebuggerRuntime.current_pc.to_string(16))
+        draw_separator()
+
+        for reg in ["rax","rbx","rcx","rdx","rsp","rbp","rsi","rdi","rip"] {
+            draw_text(reg + ": 0x" + DebuggerRuntime.get_register(reg).to_string(16))
+        }
+
+        draw_separator()
+        draw_text("Breakpoints:")
+        for bp in DebuggerRuntime.breakpoints {
+            draw_text("  0x" + bp.to_string(16))
+        }
+
+        if button("Step") {
+            DebuggerRuntime.step()
+        }
+        if button("Continue") {
+            DebuggerRuntime.continue_execution()
+        }
+        if button("Pause") {
+            DebuggerRuntime.pause_execution()
+        }
+
+        draw_separator()
+        draw_text("Watch Variables:")
+        for (name, val) in DebuggerRuntime.watch_vars {
+            draw_text("  " + name + " = 0x" + val.to_string(16))
+        }
+    }
+}
