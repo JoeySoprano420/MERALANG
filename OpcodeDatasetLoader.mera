@@ -1,0 +1,74 @@
+capsule OpcodeDatasetLoader {
+    // Example: Load opcode spec JSON and generate OpcodeEntry list dynamically
+
+    func load_from_json(file_path: string) {
+        val json_text = file_read_text(file_path)
+        val json_data = parse_json(json_text)
+
+        OpcodeDatabase.opcode_table.clear()
+
+        for op_entry in json_data["opcodes"] {
+            val mnemonic = op_entry["mnemonic"].to_lower()
+            val operand_patterns = op_entry["operands"].map(x => x.to_string())
+            val encoding_spec = op_entry["encoding"]
+
+            OpcodeDatabase.opcode_table.append(OpcodeDatabase.OpcodeEntry{
+                mnemonic: mnemonic,
+                operand_patterns: operand_patterns,
+                encode_func: generate_encoder(encoding_spec)
+            })
+        }
+    }
+
+    // Generates an encode_func closure from encoding spec
+    func generate_encoder(spec: dict) -> func(list<Parser.Operand>, int) -> bytes {
+        return func(operands: list<Parser.Operand>, addr: int) -> bytes {
+            var bytes = []
+
+            // Example: encode prefixes
+            for prefix in spec.get("prefixes", []) {
+                bytes.append(parse_hex_byte(prefix))
+            }
+
+            // Opcode bytes
+            for opcode_byte in spec["opcode"] {
+                bytes.append(parse_hex_byte(opcode_byte))
+            }
+
+            // ModRM/SIB/Displacement/Immediate handled here per spec
+            // This is a complex process involving operand types, addressing modes, etc.
+
+            // Example for immediate values:
+            if spec.contains_key("imm_size") {
+                val imm_value = parse_imm(operands[-1].text)
+                val imm_bytes = encode_imm(imm_value, spec["imm_size"])
+                bytes.extend(imm_bytes)
+            }
+
+            return bytes
+        }
+    }
+
+    func parse_hex_byte(s: string) -> int {
+        if s.starts_with("0x") {
+            return int("0x" + s.substr(2))
+        }
+        return int(s)
+    }
+
+    func encode_imm(val: int, size_bits: int) -> bytes {
+        val size_bytes = size_bits / 8
+        var result = []
+        for i in 0 .. size_bytes - 1 {
+            result.append((val >> (8 * i)) & 0xFF)
+        }
+        return result
+    }
+
+    func parse_imm(s: string) -> int {
+        if s.starts_with("0x") {
+            return int(s)
+        }
+        return int(s)
+    }
+}
