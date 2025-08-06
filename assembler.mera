@@ -1,81 +1,96 @@
 capsule Assembler {
     import Parser
     import SymbolTable
+    import RelocationTable
     import OpcodeTable
-    import Dodecagram
     import PEHeader
+    import Dodecagram
     import FileIO
 
     var code_bytes: bytes = []
-    var fixups: list<{position: int, label: string}> = []
 
-    // First pass: assign addresses to labels, build code with placeholders
+    // First pass: calculate addresses and generate code with placeholder for calls
     func first_pass() {
-        var address = 0
+        var addr = 0
         for instr in Parser.instructions {
-            if instr.mnemonic == "label" {
-                SymbolTable.define_label(instr.operands[0], address)
-            } else {
-                val opcode_bytes = OpcodeTable.encode(instr)
-                if instr.mnemonic == "call" {
-                    // record fixup for label call
-                    fixups.append({position: address + 1, label: instr.operands[0]})
-                }
-                address += opcode_bytes.length
-                code_bytes.extend(opcode_bytes)
+            if Parser.labels.contains_key(instr.mnemonic) {
+                SymbolTable.define_label(instr.mnemonic, addr)
             }
+            val bytes = OpcodeTable.encode(instr, addr)
+            code_bytes.extend(bytes)
+            addr += bytes.length
         }
     }
 
-    // Second pass: patch calls with correct relative offsets
+    // Second pass: fix relocations for call instructions
     func second_pass() {
-        for fixup in fixups {
-            val target_address = SymbolTable.resolve_label(fixup.label)
-            val call_site = fixup.position
-            val rel_offset = target_address - (call_site + 4) // 4 = size of rel32 operand
-            // Patch code_bytes at call_site with rel_offset little endian
-            code_bytes[call_site] = rel_offset & 0xFF
-            code_bytes[call_site + 1] = (rel_offset >> 8) & 0xFF
-            code_bytes[call_site + 2] = (rel_offset >> 16) & 0xFF
-            code_bytes[call_site + 3] = (rel_offset >> 24) & 0xFF
+        for reloc in RelocationTable.relocations {
+            val target = SymbolTable.resolve_label(reloc.label)
+            val rel = target - (reloc.position + 4)
+            code_bytes[reloc.position] = rel & 0xFF
+            code_bytes[reloc.position + 1] = (rel >> 8) & 0xFF
+            code_bytes[reloc.position + 2] = (rel >> 16) & 0xFF
+            code_bytes[reloc.position + 3] = (rel >> 24) & 0xFF
         }
     }
 
-    // Build final PE file bytes including imports for ExitProcess
+    // Build full PE file including import tables and code section
     func build_pe_file() -> bytes {
-        // For brevity, imports & thunk table generation omitted here, assume fixed for ExitProcess
+        // Compose all headers and sections together
+        val dos_stub = PEHeader.dos_stub
+        val pe_sig = PEHeader.pe_sig
+        val coff_header = PEHeader.coff_header
+        val optional_header = PEHeader.optional_header
+        val section_header = PEHeader.section_header(code_bytes.length)
 
-        val code_len = code_bytes.length
-        val padded_len = ((code_len + 0x1FF) & ~0x1FF)
-        val padding = padded_len - code_len
-        for _ in 0 .. padding - 1 {
-            code_bytes.append(0)
+        val import_dir = PEHeader.build_import_directory()
+        val thunk_tbl = PEHeader.build_thunk_table()
+        val imp_names = PEHeader.build_import_names()
+        val fn_name = PEHeader.build_function_name()
+
+        // Layout file parts (simplified)
+        var file = []
+        file.extend(dos_stub)
+        while file.length < 0x80 {
+            file.append(0)
         }
+        file.extend(pe_sig)
+        file.extend(coff_header)
+        file.extend(optional_header)
+        file.extend(section_header)
 
-        val file_bytes = []
-        file_bytes.extend(PEHeader.dos_stub)
-        val pe_header_offset = 0x80
-        val current_len = file_bytes.length
-        for _ in 0 .. pe_header_offset - current_len - 1 {
-            file_bytes.append(0)
+        // Pad to 0x400 for section start
+        while file.length < 0x400 {
+            file.append(0)
         }
+        file.extend(code_bytes)
 
-        file_bytes.extend(PEHeader.pe_sig)
-        file_bytes.extend(PEHeader.coff_header)
-        file_bytes.extend(PEHeader.optional_header)
-        file_bytes.extend(PEHeader.section_header(padded_len))
-
-        val headers_len = file_bytes.length
-        for _ in 0 .. 0x400 - headers_len - 1 {
-            file_bytes.append(0)
+        // Import directory at 0x2000 (needs proper addressing in optional header!)
+        while file.length < 0x2000 {
+            file.append(0)
         }
+        file.extend(import_dir)
 
-        file_bytes.extend(code_bytes)
-        return file_bytes
+        while file.length < 0x2100 {
+            file.append(0)
+        }
+        file.extend(thunk_tbl)
+
+        while file.length < 0x2200 {
+            file.append(0)
+        }
+        file.extend(imp_names)
+
+        while file.length < 0x2300 {
+            file.append(0)
+        }
+        file.extend(fn_name)
+
+        return file
     }
 
     func write_exe(filename: string) {
-        val pe_bytes = build_pe_file()
-        FileIO.write_binary(filename, pe_bytes)
+        val pe = build_pe_file()
+        FileIO.write_binary(filename, pe)
     }
 }
