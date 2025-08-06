@@ -1,0 +1,44 @@
+capsule CLI {
+    import Lexer
+    import Parser
+    import MacroProcessor
+    import OpcodeDatabase
+    import Assembler
+    import Linker
+
+    func run(args: list<string>) {
+        if args.length == 0 {
+            say("Usage: meraasm <input.asm> [-o output.exe]")
+            return
+        }
+        val input_file = args[0]
+        val output_file = if args.length > 2 && args[1] == "-o" then args[2] else "a.exe"
+
+        val source = file_read_text(input_file)
+
+        Lexer.tokenize(source)
+        Parser.parse()
+        MacroProcessor.expand_macros()
+        OpcodeDatabase.initialize()
+
+        Assembler.first_pass()
+        Assembler.second_pass()
+
+        Linker.add_section(".text", Assembler.code_bytes)
+        Linker.link()
+
+        Assembler.write_exe(output_file)
+        say("Assembly complete: " + input_file + " -> " + output_file)
+    }
+}
+
+capsule Main {
+    import CLI
+
+    func main() {
+        val args = get_cli_args()
+        CLI.run(args)
+    }
+}
+
+Main.main()
