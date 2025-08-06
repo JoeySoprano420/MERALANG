@@ -118,9 +118,8 @@ capsule CLI {
             return
         }
 
-        // Detect if single-file build or multi-file build
+        // Single file build if only one file or no special flags
         if args.length == 1 || (!args.contains("-o") && !args.contains("--debug") && !args.contains("--verbose")) {
-            // Single file simple build
             val infile = args[0]
             val outfile = if args.contains("-o") then args[args.index_of("-o") + 1] else "a.exe"
             val debug = args.contains("--debug")
@@ -153,7 +152,7 @@ capsule CLI {
 
             say("Assembled " + infile + " -> " + outfile)
         } else {
-            // Multi-file build with dependency graph & concurrency
+            // Multi-file build with concurrency
             val sources = parse_sources(args)
             val graph = BuildGraph()
             for src in sources {
@@ -167,9 +166,20 @@ capsule CLI {
             }
             val parsed_results = ConcurrentBuildSystem.wait_all_tasks()
 
-            // TODO: Parallel macro expansion, assembly, linking...
+            // TODO: Add parallel macro expansion, assembly, linking here
 
             say("Build completed.")
         }
     }
 }
+
+capsule Main {
+    import CLI
+
+    func main() {
+        val args = get_cli_args()
+        CLI.run(args)
+    }
+}
+
+Main.main()
