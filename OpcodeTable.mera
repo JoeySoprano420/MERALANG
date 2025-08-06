@@ -1,7 +1,9 @@
 capsule OpcodeTable {
     import Dodecagram
+    import SymbolTable
+    import RelocationTable
 
-    // Registers with their encoding numbers
+    // Register codes for modrm
     var reg_codes = {
         "eax": 0,
         "ecx": 1,
@@ -13,35 +15,42 @@ capsule OpcodeTable {
         "edi": 7
     }
 
-    // Example instruction encodings (limited subset)
-    func encode(instruction: Parser.Instruction) -> bytes {
-        val m = instruction.mnemonic
-        val ops = instruction.operands
-        if m == "mov" && ops.length == 2 {
-            if reg_codes.contains_key(ops[0]) && ops[1].starts_with("0x") {
-                // mov reg, imm32
-                val reg = ops[0]
-                val imm_str = ops[1]
-                val imm_val = parse_hex(imm_str)
-                val opcode_base = 0xB8 + reg_codes[reg]
-                return [opcode_base] + imm32_to_bytes(imm_val)
-            }
-        } else if m == "xor" && ops.length == 2 && ops[0] == ops[1] && reg_codes.contains_key(ops[0]) {
-            // xor reg, reg (e.g. xor eax, eax)
+    // Encode instruction
+    func encode(instr: Parser.Instruction, current_addr: int) -> bytes {
+        val m = instr.mnemonic
+        val ops = instr.operands
+
+        // mov reg, imm32
+        if m == "mov" && ops.length == 2 && reg_codes.contains_key(ops[0]) && ops[1].starts_with("0x") {
+            val reg = ops[0]
+            val imm_val = parse_hex(ops[1])
+            val opcode = 0xB8 + reg_codes[reg]
+            return [opcode] + imm32_to_bytes(imm_val)
+        }
+
+        // xor reg, reg (e.g. xor eax, eax)
+        if m == "xor" && ops.length == 2 && ops[0] == ops[1] && reg_codes.contains_key(ops[0]) {
             val reg = ops[0]
             val modrm = 0xC0 + reg_codes[reg] * 8 + reg_codes[reg]
             return [0x31, modrm]
-        } else if m == "call" && ops.length == 1 {
-            // call label (relative)
-            // Return dummy 5 bytes for call rel32, to be patched after label resolution
-            return [0xE8, 0x00, 0x00, 0x00, 0x00]
-        } else if m == "ret" {
+        }
+
+        // call label
+        if m == "call" && ops.length == 1 {
+            // Emit opcode 0xE8 + placeholder rel32
+            val result = [0xE8, 0, 0, 0, 0]
+            RelocationTable.add(current_addr + 1, ops[0]) // patch after assembly
+            return result
+        }
+
+        // ret
+        if m == "ret" && ops.length == 0 {
             return [0xC3]
         }
-        error("Unsupported instruction: " + m + " with operands " + ops.join(", "))
+
+        error("Unsupported instruction or operands at line " + instr.line + ": " + m + " " + ops.join(", "))
     }
 
-    // Convert imm32 int to 4 bytes little endian
     func imm32_to_bytes(val: int) -> bytes {
         return [
             val & 0xFF,
@@ -52,10 +61,9 @@ capsule OpcodeTable {
     }
 
     func parse_hex(s: string) -> int {
-        // strip 0x prefix and parse hex string to int
-        val hex_str = s.lower().starts_with("0x") ? s.substr(2) : s
-        val result = 0
-        for ch in hex_str {
+        val hex_str = if s.starts_with("0x") then s.substr(2) else s
+        var result = 0
+        for ch in hex_str.to_lower() {
             val digit = if ch >= '0' && ch <= '9' then (int)ch - (int)'0'
                         else if ch >= 'a' && ch <= 'f' then 10 + ((int)ch - (int)'a')
                         else error("Invalid hex digit: " + ch)
