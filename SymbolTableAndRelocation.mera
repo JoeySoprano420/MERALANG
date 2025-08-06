@@ -1,0 +1,29 @@
+capsule SymbolTable {
+    var label_addresses: dict<string, int> = {}
+
+    func define_label(name: string, address: int) {
+        if label_addresses.contains_key(name) {
+            error("Label redefinition: " + name)
+        }
+        label_addresses[name] = address
+    }
+
+    func resolve_label(name: string) -> int {
+        if !label_addresses.contains_key(name) {
+            error("Undefined label: " + name)
+        }
+        return label_addresses[name]
+    }
+}
+
+capsule RelocationTable {
+    struct Relocation {
+        position: int
+        label: string
+    }
+    var relocations: list<Relocation> = []
+
+    func add(position: int, label: string) {
+        relocations.append(Relocation{position: position, label: label})
+    }
+}
