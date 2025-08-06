@@ -1,102 +1,156 @@
 capsule OpcodeDatabase {
     import Dodecagram
+    import SymbolTable
+    import RelocationTable
 
-    // Map: mnemonic + operand patterns -> opcode bytes + encoding rules
-    // In practice, thousands of instructions — here is a scalable example:
-
+    // Opcode descriptor structure for flexible encoding
     struct OpcodeEntry {
         mnemonic: string
-        operand_types: list<string> // e.g., ["REGISTER", "IMMEDIATE"]
+        operand_types: list<string> // e.g. ["REG", "IMM32"], ["REG", "REG"], ["LABEL"], []
         encode_func: func(list<Parser.Operand>, int) -> bytes
     }
 
     var opcode_table: list<OpcodeEntry> = []
 
-    func register_opcodes() {
+    func register_core_opcodes() {
+        // Register MOV reg, imm32
         opcode_table.append(OpcodeEntry{
             mnemonic: "mov",
-            operand_types: ["REGISTER", "IMMEDIATE"],
+            operand_types: ["REG", "IMM32"],
             encode_func: encode_mov_reg_imm
         })
+        // XOR reg, reg
         opcode_table.append(OpcodeEntry{
             mnemonic: "xor",
-            operand_types: ["REGISTER", "REGISTER"],
+            operand_types: ["REG", "REG"],
             encode_func: encode_xor_reg_reg
         })
+        // CALL label (near)
         opcode_table.append(OpcodeEntry{
             mnemonic: "call",
             operand_types: ["LABEL"],
             encode_func: encode_call_label
         })
+        // RET
         opcode_table.append(OpcodeEntry{
             mnemonic: "ret",
             operand_types: [],
             encode_func: encode_ret
         })
-        // Add more opcode registrations here
+        // ADD reg, reg
+        opcode_table.append(OpcodeEntry{
+            mnemonic: "add",
+            operand_types: ["REG", "REG"],
+            encode_func: encode_add_reg_reg
+        })
+        // SUB reg, imm8
+        opcode_table.append(OpcodeEntry{
+            mnemonic: "sub",
+            operand_types: ["REG", "IMM8"],
+            encode_func: encode_sub_reg_imm8
+        })
+        // INC reg
+        opcode_table.append(OpcodeEntry{
+            mnemonic: "inc",
+            operand_types: ["REG"],
+            encode_func: encode_inc_reg
+        })
+        // DEC reg
+        opcode_table.append(OpcodeEntry{
+            mnemonic: "dec",
+            operand_types: ["REG"],
+            encode_func: encode_dec_reg
+        })
+        // JMP label (near)
+        opcode_table.append(OpcodeEntry{
+            mnemonic: "jmp",
+            operand_types: ["LABEL"],
+            encode_func: encode_jmp_label
+        })
+        // ADD reg, imm32
+        opcode_table.append(OpcodeEntry{
+            mnemonic: "add",
+            operand_types: ["REG", "IMM32"],
+            encode_func: encode_add_reg_imm32
+        })
+        // More instructions can be added here...
     }
 
-    func encode(instruction: Parser.Instruction, current_address: int) -> bytes {
-        for entry in opcode_table {
-            if entry.mnemonic == instruction.mnemonic && entry.operand_types.length == instruction.operands.length {
-                // Basic operand type match; more sophisticated pattern matching possible
-                var match = true
-                for i in 0 .. instruction.operands.length - 1 {
-                    if instruction.operands[i].type != entry.operand_types[i] {
-                        match = false
-                        break
-                    }
-                }
-                if match {
-                    return entry.encode_func(instruction.operands, current_address)
-                }
-            }
-        }
-        error("Unknown or unsupported instruction: " + instruction.mnemonic)
-    }
-
-    // Example encoder functions
-    func encode_mov_reg_imm(ops: list<Parser.Operand>, _addr: int) -> bytes {
-        val reg_codes = {
-            "eax": 0,
-            "ecx": 1,
-            "edx": 2,
-            "ebx": 3,
-            "esp": 4,
-            "ebp": 5,
-            "esi": 6,
-            "edi": 7
-        }
-        val reg = ops[0].text
+    // Encoding functions:
+    func encode_mov_reg_imm(ops: list<Parser.Operand>, addr: int) -> bytes {
+        val reg_codes = reg_codes_map()
+        val reg = reg_codes[ops[0].text]
         val imm = parse_imm(ops[1].text)
-        val opcode = 0xB8 + reg_codes[reg]
+        val opcode = 0xB8 + reg
         return [opcode] + imm32_to_bytes(imm)
     }
 
     func encode_xor_reg_reg(ops: list<Parser.Operand>, _addr: int) -> bytes {
-        val reg_codes = {
-            "eax": 0,
-            "ecx": 1,
-            "edx": 2,
-            "ebx": 3,
-            "esp": 4,
-            "ebp": 5,
-            "esi": 6,
-            "edi": 7
-        }
+        val reg_codes = reg_codes_map()
         val reg1 = reg_codes[ops[0].text]
         val reg2 = reg_codes[ops[1].text]
         val modrm = 0xC0 + reg2 * 8 + reg1
         return [0x31, modrm]
     }
 
-    func encode_call_label(ops: list<Parser.Operand>, current_address: int) -> bytes {
-        RelocationTable.add(current_address + 1, ops[0].text)
+    func encode_call_label(ops: list<Parser.Operand>, addr: int) -> bytes {
+        RelocationTable.add(addr + 1, ops[0].text)
         return [0xE8, 0, 0, 0, 0]
     }
 
     func encode_ret(_ops: list<Parser.Operand>, _addr: int) -> bytes {
         return [0xC3]
+    }
+
+    func encode_add_reg_reg(ops: list<Parser.Operand>, _addr: int) -> bytes {
+        val reg_codes = reg_codes_map()
+        val reg1 = reg_codes[ops[0].text]
+        val reg2 = reg_codes[ops[1].text]
+        val modrm = 0xC0 + reg2 * 8 + reg1
+        return [0x01, modrm]
+    }
+
+    func encode_sub_reg_imm8(ops: list<Parser.Operand>, _addr: int) -> bytes {
+        val reg_codes = reg_codes_map()
+        val reg = reg_codes[ops[0].text]
+        val imm = parse_imm(ops[1].text)
+        val opcode = 0x83
+        val modrm = 0xE8 + reg
+        return [opcode, modrm, imm & 0xFF]
+    }
+
+    func encode_inc_reg(ops: list<Parser.Operand>, _addr: int) -> bytes {
+        val reg_codes = reg_codes_map()
+        val reg = reg_codes[ops[0].text]
+        return [0x40 + reg]
+    }
+
+    func encode_dec_reg(ops: list<Parser.Operand>, _addr: int) -> bytes {
+        val reg_codes = reg_codes_map()
+        val reg = reg_codes[ops[0].text]
+        return [0x48 + reg]
+    }
+
+    func encode_jmp_label(ops: list<Parser.Operand>, addr: int) -> bytes {
+        RelocationTable.add(addr + 1, ops[0].text)
+        return [0xE9, 0, 0, 0, 0]
+    }
+
+    func encode_add_reg_imm32(ops: list<Parser.Operand>, _addr: int) -> bytes {
+        val reg_codes = reg_codes_map()
+        val reg = reg_codes[ops[0].text]
+        val imm = parse_imm(ops[1].text)
+        val opcode = 0x81
+        val modrm = 0xC0 + reg
+        return [opcode, modrm] + imm32_to_bytes(imm)
+    }
+
+    // Helper maps and parsers
+    func reg_codes_map() -> dict<string,int> {
+        return {
+            "eax":0, "ecx":1, "edx":2, "ebx":3,
+            "esp":4, "ebp":5, "esi":6, "edi":7
+        }
     }
 
     func parse_imm(text: string) -> int {
@@ -125,5 +179,12 @@ capsule OpcodeDatabase {
             (val >> 16) & 0xFF,
             (val >> 24) & 0xFF
         ]
+    }
+
+    // Initialize opcode table at startup
+    func initialize() {
+        opcode_table.clear()
+        register_core_opcodes()
+        // Register more instructions as needed
     }
 }
