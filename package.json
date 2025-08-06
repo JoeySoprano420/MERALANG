@@ -1,13 +1,17 @@
 {
-  "name": "mera-lang",
+  "name": "meralang-language-server",
   "displayName": "MeraLang",
-  "description": "Syntax highlighting for MeraLang (.mera files)",
+  "description": "Syntax highlighting for MeraLang (.mera files) and language server support",
   "version": "0.0.1",
   "publisher": "your-name",
+  "main": "server.js",
   "engines": {
     "vscode": "^1.60.0"
   },
   "categories": ["Programming Languages"],
+  "dependencies": {
+    "vscode-languageserver": "^7.0.0"
+  },
   "contributes": {
     "languages": [{
       "id": "meralang",
@@ -19,6 +23,8 @@
       "language": "meralang",
       "scopeName": "source.meralang",
       "path": "./syntaxes/meralang.tmLanguage.json"
-    }]
+    }],
+    "activationEvents": ["onLanguage:meralang"],
+    "main": "./server.js"
   }
 }
