@@ -1,0 +1,36 @@
+capsule Linker {
+    import Assembler
+    import PEBuilder
+    import SymbolTable
+    import RelocationTable
+
+    var sections: dict<string, bytes> = {}
+
+    func add_section(name: string, data: bytes) {
+        sections[name] = data
+    }
+
+    func link() {
+        // Calculate section addresses and sizes
+        // Resolve relocations
+        // Build import tables for APIs like ExitProcess
+        // Construct PE file with all sections and tables
+
+        // For simplicity, merge all sections into one .text
+        var final_code = bytes()
+        for s in sections.keys() {
+            final_code.extend(sections[s])
+        }
+        Assembler.code_bytes = final_code
+
+        // Patch relocations
+        for reloc in RelocationTable.relocations {
+            val target_addr = SymbolTable.resolve_label(reloc.label)
+            val rel = target_addr - (reloc.position + 4)
+            Assembler.code_bytes[reloc.position] = rel & 0xFF
+            Assembler.code_bytes[reloc.position + 1] = (rel >> 8) & 0xFF
+            Assembler.code_bytes[reloc.position + 2] = (rel >> 16) & 0xFF
+            Assembler.code_bytes[reloc.position + 3] = (rel >> 24) & 0xFF
+        }
+    }
+}
