@@ -1,0 +1,31 @@
+capsule StreamedBuildProcessor {
+    import Lexer
+    import Parser
+    import MacroProcessor
+    import Assembler
+    import ConcurrencyManager
+
+    // Process source incrementally frame-by-frame
+    func process_source_stream(stream: Stream) {
+        var buffer = ""
+        while !stream.eof() {
+            val chunk = stream.read_chunk(1024)  // Read 1KB frames
+            buffer += chunk
+
+            // Tokenize and parse frames without blocking whole file load
+            Lexer.tokenize(buffer)
+            Parser.parse()
+
+            // Expand macros asynchronously
+            MacroProcessor.expand_macros()
+
+            // Partial assembly of parsed instructions per frame
+            Assembler.first_pass_partial(Parser.instructions)
+            Assembler.second_pass_partial()
+
+            // Clear buffer or retain unprocessed remainder
+            buffer = "" // Or retain if partial lines remain
+        }
+        Assembler.finalize()
+    }
+}
