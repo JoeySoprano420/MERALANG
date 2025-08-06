@@ -1,0 +1,130 @@
+capsule ConcurrentBuildSystem {
+    import Lexer
+    import Parser
+    import MacroProcessor
+    import OpcodeDatabase
+    import Assembler
+    import Linker
+    import Hashing
+    import FileIO
+
+    // Concurrent task handle type
+    struct TaskHandle {
+        id: int
+        result: any
+        done: bool
+    }
+
+    // Build cache structure
+    var build_cache: dict<string, bytes> = {}
+    var task_counter = 0
+
+    // Async macro expansion cache (param hash -> expanded instructions)
+    var macro_expansion_cache: dict<string, list<Parser.Instruction>> = {}
+
+    // Thread-safe task list
+    var tasks: list<TaskHandle> = []
+
+    // Launch async task to lex+parse a source file
+    func launch_lex_parse(file_path: string) -> TaskHandle {
+        val task_id = task_counter
+        task_counter += 1
+
+        // Assume mera_async_thread is MeraLang’s concurrency primitive
+        val handle = mera_async_thread( func() -> any {
+            val src = file_read_text(file_path)
+            Lexer.tokenize(src)
+            Parser.parse()
+            return Parser.instructions
+        })
+
+        val task = TaskHandle{id: task_id, result: handle, done: false}
+        tasks.append(task)
+        return task
+    }
+
+    // Launch async macro expansion with caching
+    func launch_macro_expand(macro_name: string, args: list<string>) -> TaskHandle {
+        val param_hash = hash_macro_call(macro_name, args)
+        if macro_expansion_cache.contains_key(param_hash) {
+            // Return cached result immediately
+            return TaskHandle{id: -1, result: macro_expansion_cache[param_hash], done: true}
+        }
+        val task_id = task_counter
+        task_counter += 1
+
+        val handle = mera_async_thread( func() -> any {
+            val macro = MacroProcessor.macros[macro_name]
+            val expanded = MacroProcessor.expand_macro_call(macro, args)
+            macro_expansion_cache[param_hash] = expanded
+            return expanded
+        })
+
+        val task = TaskHandle{id: task_id, result: handle, done: false}
+        tasks.append(task)
+        return task
+    }
+
+    func hash_macro_call(name: string, args: list<string>) -> string {
+        var combined = name + ":"
+        for a in args { combined += a + ";" }
+        return Hashing.sha256(combined)
+    }
+
+    // Multi-threaded assembler of independent modules
+    func launch_assemble_module(instructions: list<Parser.Instruction>) -> TaskHandle {
+        val task_id = task_counter
+        task_counter += 1
+
+        val handle = mera_async_thread( func() -> any {
+            Assembler.instructions = instructions
+            Assembler.first_pass()
+            Assembler.second_pass()
+            return Assembler.code_bytes
+        })
+
+        val task = TaskHandle{id: task_id, result: handle, done: false}
+        tasks.append(task)
+        return task
+    }
+
+    // Monitor and gather all tasks results
+    func wait_all_tasks() -> list<any> {
+        var results = []
+        while tasks.length > 0 {
+            var i = 0
+            while i < tasks.length {
+                val t = tasks[i]
+                if t.done {
+                    results.append(t.result)
+                    tasks.remove(i)
+                } else if mera_async_is_done(t.result) {
+                    t.result = mera_async_get_result(t.result)
+                    t.done = true
+                    results.append(t.result)
+                    tasks.remove(i)
+                } else {
+                    i += 1
+                }
+            }
+            mera_sleep(10)  // yield thread to avoid busy wait
+        }
+        return results
+    }
+
+    // Build cache: hash source + macro state; check cache for build hit
+    func check_build_cache(file_path: string, macro_state_hash: string) -> bytes? {
+        val file_hash = Hashing.file_sha256(file_path)
+        val combined_hash = Hashing.sha256(file_hash + macro_state_hash)
+        if build_cache.contains_key(combined_hash) {
+            return build_cache[combined_hash]
+        }
+        return null
+    }
+
+    func store_build_cache(file_path: string, macro_state_hash: string, binary: bytes) {
+        val file_hash = Hashing.file_sha256(file_path)
+        val combined_hash = Hashing.sha256(file_hash + macro_state_hash)
+        build_cache[combined_hash] = binary
+    }
+}
