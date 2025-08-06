@@ -1,56 +1,84 @@
 capsule JITCompiler {
     import Parser
     import OpcodeDatabase
-    import CacheManager
+    import Lexer
 
-    // IR representation for compiled macros
-    struct MacroIR {
-        instructions: list<Parser.Instruction>
-        compiled_binary: bytes
+    struct CompiledOpcode {
+        pattern: string
+        operand_types: list<string>     // Parsed operand types from pattern
+        encode_func: func(list<Parser.Operand>, int) -> bytes
     }
 
-    var macro_ir_cache: dict<string, MacroIR> = {}
+    var compiled_opcodes: dict<string, CompiledOpcode> = {}
 
-    // Compile macro source text into IR and binary
-    func compile_macro(macro_name: string, macro_source: string) -> MacroIR {
-        if macro_ir_cache.contains_key(macro_name) {
-            return macro_ir_cache[macro_name]
-        }
-
-        // Parse macro source to instructions (simplified)
-        Lexer.tokenize(macro_source)
-        Parser.parse()
-        val instructions = Parser.instructions.clone()
-
-        // Encode instructions to binary
-        var binary = bytes()
-        var current_addr = 0
-        for instr in instructions {
-            val encoded = OpcodeDatabase.encode(instr, current_addr)
-            binary.extend(encoded)
-            current_addr += encoded.length
-        }
-
-        val ir = MacroIR{instructions: instructions, compiled_binary: binary}
-        macro_ir_cache[macro_name] = ir
-        return ir
+    // Parse pattern string like "REG32,IMM32" into operand types list
+    func parse_pattern(pattern: string) -> list<string> {
+        return pattern.split(",").map(s => s.trim())
     }
 
-    // Execute macro IR with parameters, returning expanded instructions
-    func execute_macro_ir(ir: MacroIR, params: dict<string,string>) -> list<Parser.Instruction> {
-        // Substitute parameters in instructions
-        val expanded = []
-        for instr in ir.instructions {
-            val new_ops = []
-            for op in instr.operands {
-                if params.contains_key(op.text) {
-                    new_ops.append(Parser.Operand{text: params[op.text], type: op.type})
-                } else {
-                    new_ops.append(op)
+    // Compile opcode pattern to a compiled form with fast matching and encoding
+    func compile_opcode_pattern(pattern: string) -> CompiledOpcode {
+        if compiled_opcodes.contains_key(pattern) {
+            return compiled_opcodes[pattern]
+        }
+
+        val operand_types = parse_pattern(pattern)
+
+        // Find matching OpcodeEntry in OpcodeDatabase for this pattern
+        var matched_entry: OpcodeDatabase.OpcodeEntry? = null
+        for entry in OpcodeDatabase.opcode_table {
+            if entry.operand_patterns.length == operand_types.length {
+                var all_match = true
+                for i in 0 .. operand_types.length - 1 {
+                    if entry.operand_patterns[i] != operand_types[i] {
+                        all_match = false
+                        break
+                    }
+                }
+                if all_match {
+                    matched_entry = entry
+                    break
                 }
             }
-            expanded.append(Parser.Instruction{mnemonic: instr.mnemonic, operands: new_ops, line: instr.line})
         }
-        return expanded
+        if matched_entry == null {
+            error("No opcode entry found for pattern: " + pattern)
+        }
+
+        val compiled = CompiledOpcode{
+            pattern: pattern,
+            operand_types: operand_types,
+            encode_func: matched_entry.encode_func
+        }
+
+        compiled_opcodes[pattern] = compiled
+        return compiled
+    }
+
+    // Execute compiled opcode encoding with operands, producing bytes
+    func execute_opcode(compiled: CompiledOpcode, operands: list<Parser.Operand>, addr: int) -> bytes {
+        if operands.length != compiled.operand_types.length {
+            error("Operand count mismatch. Expected " + compiled.operand_types.length.to_string() + ", got " + operands.length.to_string())
+        }
+        // Verify operands match expected types
+        for i in 0 .. operands.length - 1 {
+            val expected_type = compiled.operand_types[i]
+            if !operand_matches(operands[i], expected_type) {
+                error("Operand type mismatch at position " + i.to_string() + ": expected " + expected_type + ", got " + operands[i].type)
+            }
+        }
+
+        // Call the precompiled encoding function
+        return compiled.encode_func(operands, addr)
+    }
+
+    func operand_matches(op: Parser.Operand, pattern: string) -> bool {
+        switch pattern {
+            case "REG32": return op.type == "REGISTER"
+            case "IMM32": return op.type == "IMMEDIATE"
+            case "IMM8": return op.type == "IMMEDIATE"
+            case "LABEL": return op.type == "LABEL"
+            default: return false
+        }
     }
 }
