@@ -1,0 +1,10 @@
+capsule Main {
+    import CLI
+
+    func main() {
+        val args = get_cli_args()
+        CLI.run(args)
+    }
+}
+
+Main.main()
