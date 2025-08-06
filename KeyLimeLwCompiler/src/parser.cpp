@@ -1,72 +1,124 @@
-#include "parser.h"
+#include <string>
+#include <vector>
+#include <stdexcept>
 
-static size_t i = 0;
-static const std::vector<Token>* ptoks;
+// Universal, self-contained AST types
+enum class NodeKind {
+    Program, Capsule, Macro, Val, Loop, Say, When, Block, Op, Number, String, Identifier
+};
 
-// Helper macros
-#define CUR (*ptoks)[i]
-#define NEXT() (++i < ptoks->size() ? (*ptoks)[i] : Token{TokenType::EndOfFile,"",0})
+struct ASTNode {
+    NodeKind kind;
+    std::string val;
+    std::vector<ASTNode> args;
+    std::vector<ASTNode> body;
+};
 
-ASTNode parse_block(); // forward
+// Universal token type
+enum class TokenType {
+    Keyword, Identifier, Number, String, EndOfFile
+};
 
-ASTNode parse_val() {
-    ASTNode n{NodeKind::Val};
-    ++i; // skip 'val'
-    if (CUR.type == TokenType::Identifier) n.val = CUR.lexeme;
+struct Token {
+    TokenType type;
+    std::string lexeme;
+};
+
+// Pure, portable parser implementation
+namespace {
+
+ASTNode parse_val(const std::vector<Token>& tokens, size_t& i) {
+    ASTNode n;
+    n.kind = NodeKind::Val;
     ++i;
-    if (CUR.lexeme == "=") ++i;
-    if (CUR.type == TokenType::Number) {
-        n.args.push_back(ASTNode{NodeKind::Number, CUR.lexeme});
+    if (i < tokens.size() && tokens[i].type == TokenType::Identifier)
+        n.val = tokens[i].lexeme;
+    ++i;
+    if (i < tokens.size() && tokens[i].lexeme == "=") ++i;
+    if (i < tokens.size() && tokens[i].type == TokenType::Number) {
+        ASTNode num;
+        num.kind = NodeKind::Number;
+        num.val = tokens[i].lexeme;
+        n.args.push_back(num);
         ++i;
     }
     return n;
 }
-ASTNode parse_say() {
-    ASTNode n{NodeKind::Say};
+
+ASTNode parse_say(const std::vector<Token>& tokens, size_t& i) {
+    ASTNode n;
+    n.kind = NodeKind::Say;
     ++i;
-    if (CUR.type == TokenType::String)
-        n.args.push_back(ASTNode{NodeKind::String, CUR.lexeme});
+    if (i < tokens.size() && tokens[i].type == TokenType::String) {
+        ASTNode str;
+        str.kind = NodeKind::String;
+        str.val = tokens[i].lexeme;
+        n.args.push_back(str);
+    }
     ++i;
     return n;
 }
-ASTNode parse_loop() {
-    ASTNode n{NodeKind::Loop};
-    ++i; // skip loop
-    if (CUR.type == TokenType::Identifier)
-        n.val = CUR.lexeme;
-    ++i; // 'from'
-    if (CUR.type == TokenType::Keyword && CUR.lexeme == "from") ++i;
-    if (CUR.type == TokenType::Number)
-        n.args.push_back(ASTNode{NodeKind::Number, CUR.lexeme});
-    ++i; // ':'
-    if (CUR.lexeme == ":") ++i;
-    n.body.push_back(parse_block());
+
+ASTNode parse_loop(const std::vector<Token>& tokens, size_t& i);
+ASTNode parse_block(const std::vector<Token>& tokens, size_t& i);
+
+ASTNode parse_loop(const std::vector<Token>& tokens, size_t& i) {
+    ASTNode n;
+    n.kind = NodeKind::Loop;
+    ++i;
+    if (i < tokens.size() && tokens[i].type == TokenType::Identifier)
+        n.val = tokens[i].lexeme;
+    ++i;
+    if (i < tokens.size() && tokens[i].type == TokenType::Keyword && tokens[i].lexeme == "from") ++i;
+    if (i < tokens.size() && tokens[i].type == TokenType::Number) {
+        ASTNode num;
+        num.kind = NodeKind::Number;
+        num.val = tokens[i].lexeme;
+        n.args.push_back(num);
+    }
+    ++i;
+    if (i < tokens.size() && tokens[i].lexeme == ":") ++i;
+    n.body.push_back(parse_block(tokens, i));
     return n;
 }
-ASTNode parse_block() {
-    ASTNode n{NodeKind::Block};
-    while (i < ptoks->size()) {
-        if (CUR.type == TokenType::Keyword && CUR.lexeme == "end") { ++i; break; }
-        if (CUR.type == TokenType::Keyword && CUR.lexeme == "val") n.body.push_back(parse_val());
-        else if (CUR.type == TokenType::Keyword && CUR.lexeme == "say") n.body.push_back(parse_say());
-        else if (CUR.type == TokenType::Keyword && CUR.lexeme == "loop") n.body.push_back(parse_loop());
+
+ASTNode parse_block(const std::vector<Token>& tokens, size_t& i) {
+    ASTNode n;
+    n.kind = NodeKind::Block;
+    while (i < tokens.size()) {
+        if (tokens[i].type == TokenType::Keyword && tokens[i].lexeme == "end") { ++i; break; }
+        if (tokens[i].type == TokenType::Keyword && tokens[i].lexeme == "val")
+            n.body.push_back(parse_val(tokens, i));
+        else if (tokens[i].type == TokenType::Keyword && tokens[i].lexeme == "say")
+            n.body.push_back(parse_say(tokens, i));
+        else if (tokens[i].type == TokenType::Keyword && tokens[i].lexeme == "loop")
+            n.body.push_back(parse_loop(tokens, i));
         else ++i;
     }
     return n;
 }
+
+} // anonymous namespace
+
 ASTNode parse(const std::vector<Token>& tokens) {
-    i = 0; ptoks = &tokens;
-    ASTNode root{NodeKind::Program};
+    size_t i = 0;
+    ASTNode root;
+    root.kind = NodeKind::Program;
     while (i < tokens.size()) {
-        if (CUR.type == TokenType::Keyword && CUR.lexeme == "capsule") {
-            ASTNode n{NodeKind::Capsule};
+        if (tokens[i].type == TokenType::Keyword && tokens[i].lexeme == "capsule") {
+            ASTNode n;
+            n.kind = NodeKind::Capsule;
             ++i;
-            if (CUR.type == TokenType::Identifier) { n.val = CUR.lexeme; ++i; }
-            if (CUR.lexeme == ":") ++i;
-            n.body.push_back(parse_block());
+            if (i < tokens.size() && tokens[i].type == TokenType::Identifier) {
+                n.val = tokens[i].lexeme;
+                ++i;
+            }
+            if (i < tokens.size() && tokens[i].lexeme == ":") ++i;
+            n.body.push_back(parse_block(tokens, i));
             root.body.push_back(n);
+        } else {
+            ++i;
         }
-        else ++i;
     }
     return root;
 }
