@@ -1,0 +1,49 @@
+capsule Parser {
+    import Lexer
+
+    struct Instruction {
+        mnemonic: string
+        operands: list<string>
+    }
+
+    struct Label {
+        name: string
+        address: int
+    }
+
+    var instructions: list<Instruction> = []
+    var labels: dict<string, Label> = {}
+
+    func parse_line(line_tokens: list<string>) {
+        if line_tokens.length == 0 {
+            return
+        }
+        val first = line_tokens[0]
+        if first.ends_with(":") {
+            // Label
+            val label_name = first.substr(0, first.length - 1)
+            labels[label_name] = Label{name: label_name, address: -1} // Address to fill in during assembly
+        } else if first.starts_with(".") {
+            // Directive (e.g., .data, .code)
+            // Handle directives here (simplified)
+        } else {
+            // Instruction
+            val mnemonic = first.to_lower()
+            val operands = []
+            if line_tokens.length > 1 {
+                // Operands are comma separated in rest of line
+                val ops_str = line_tokens[1..].join(" ")
+                operands = ops_str.split(",").map(s => s.trim())
+            }
+            instructions.append(Instruction{mnemonic: mnemonic, operands: operands})
+        }
+    }
+
+    func parse(source: string) {
+        val lines = source.split("\n")
+        for line in lines {
+            val tokens = line.trim().split_whitespace()
+            parse_line(tokens)
+        }
+    }
+}
