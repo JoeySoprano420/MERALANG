@@ -1,0 +1,31 @@
+capsule MacroEngine {
+    import JITCompiler
+
+    struct MacroInstance {
+        name: string
+        ir: JITCompiler.MacroIR
+        params: dict<string,string>
+    }
+
+    var active_macros: list<MacroInstance> = []
+
+    // Define a macro with parameters and source
+    func define_macro(name: string, source: string, param_list: list<string>) {
+        val ir = JITCompiler.compile_macro(name, source)
+        active_macros.append(MacroInstance{name: name, ir: ir, params: dict()})
+    }
+
+    // Expand macro with args by mapping params to args
+    func expand_macro(name: string, args: list<string>) -> list<Parser.Instruction> {
+        val macro = active_macros.find(m => m.name == name)
+        if macro == null {
+            error("Macro not found: " + name)
+        }
+        val param_map = dict<string,string>()
+        val param_keys = macro.ir.instructions[0].operands.map(op => op.text) // Assume first instruction lists params
+        for i in 0 .. args.length - 1 {
+            param_map[param_keys[i]] = args[i]
+        }
+        return JITCompiler.execute_macro_ir(macro.ir, param_map)
+    }
+}
