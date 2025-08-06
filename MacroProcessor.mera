@@ -5,26 +5,30 @@ capsule MacroProcessor {
     struct Macro {
         name: string
         params: list<string>
-        body_tokens: list<{line:int, text:string, type:string}>
+        body_tokens: list<{line:int,text:string,type:string}>
     }
 
     var macros: dict<string, Macro> = {}
     var call_stack: list<string> = []
 
     func define_macro() {
-        val name_token = Lexer.consume()
-        if name_token == null {
-            error("Macro name expected")
+        val name = Lexer.consume()?.text
+        if name == null {
+            error("Expected macro name")
         }
-        val name = name_token.text
+        val params = parse_macro_params()
+        val body_tokens = collect_macro_body()
+        macros[name] = Macro{name: name, params: params, body_tokens: body_tokens}
+    }
+
+    func parse_macro_params() -> list<string> {
         val params = []
-        // Optional param parsing in parentheses
         if Lexer.peek()?.text == "(" {
             Lexer.consume()
             while Lexer.peek()?.text != ")" {
                 val p = Lexer.consume()?.text
                 if p == null {
-                    error("Macro parameter expected")
+                    error("Expected macro parameter")
                 }
                 params.append(p)
                 if Lexer.peek()?.text == "," {
@@ -33,8 +37,11 @@ capsule MacroProcessor {
             }
             Lexer.expect(")")
         }
-        val body_tokens = []
-        // Collect tokens until ENDM
+        return params
+    }
+
+    func collect_macro_body() -> list<{line:int,text:string,type:string}> {
+        val tokens = []
         while true {
             val tok = Lexer.consume()
             if tok == null {
@@ -43,9 +50,9 @@ capsule MacroProcessor {
             if tok.type == "ENDM" {
                 break
             }
-            body_tokens.append(tok)
+            tokens.append(tok)
         }
-        macros[name] = Macro{name: name, params: params, body_tokens: body_tokens}
+        return tokens
     }
 
     func expand_macros() {
@@ -53,7 +60,6 @@ capsule MacroProcessor {
         for instr in Parser.instructions {
             if macros.contains_key(instr.mnemonic) {
                 val macro = macros[instr.mnemonic]
-                // Simple param substitution and recursive expansion
                 val expanded = expand_macro_call(macro, instr.operands)
                 expanded_instructions.extend(expanded)
             } else {
@@ -65,15 +71,12 @@ capsule MacroProcessor {
 
     func expand_macro_call(macro: Macro, args: list<Parser.Operand>) -> list<Parser.Instruction> {
         if args.length != macro.params.length {
-            error("Macro " + macro.name + " expects " + macro.params.length + " arguments but got " + args.length)
+            error("Macro " + macro.name + " expects " + macro.params.length + " args but got " + args.length)
         }
-        // Map params to args
-        var param_map = dict<string, string>()
+        val param_map = dict<string, string>()
         for i in 0 .. macro.params.length - 1 {
             param_map[macro.params[i]] = args[i].text
         }
-
-        // Token substitution
         val substituted_tokens = []
         for tok in macro.body_tokens {
             if param_map.contains_key(tok.text) {
@@ -82,8 +85,6 @@ capsule MacroProcessor {
                 substituted_tokens.append(tok)
             }
         }
-
-        // Parse substituted tokens into instructions (recursively expand)
         val old_tokens = Lexer.tokens
         val old_line = Lexer.current_line
         Lexer.tokens = substituted_tokens
