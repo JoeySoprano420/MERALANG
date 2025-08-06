@@ -1,31 +1,103 @@
 capsule MacroProcessor {
+    import Lexer
     import Parser
 
-    var macros: dict<string, list<Parser.Instruction>> = {}
-
-    // Define macro with name and body lines
-    func define_macro(name: string, body: string) {
-        val old_tokens = Lexer.tokens
-        Lexer.tokens = []
-        Lexer.current_line = 1
-        Lexer.tokenize(body)
-        Parser.instructions = []
-        Parser.parse()
-        macros[name] = Parser.instructions.clone()
-        Lexer.tokens = old_tokens
+    struct Macro {
+        name: string
+        params: list<string>
+        body_tokens: list<{line:int, text:string, type:string}>
     }
 
-    // Expand macros in instruction list
+    var macros: dict<string, Macro> = {}
+    var call_stack: list<string> = []
+
+    func define_macro() {
+        val name_token = Lexer.consume()
+        if name_token == null {
+            error("Macro name expected")
+        }
+        val name = name_token.text
+        val params = []
+        // Optional param parsing in parentheses
+        if Lexer.peek()?.text == "(" {
+            Lexer.consume()
+            while Lexer.peek()?.text != ")" {
+                val p = Lexer.consume()?.text
+                if p == null {
+                    error("Macro parameter expected")
+                }
+                params.append(p)
+                if Lexer.peek()?.text == "," {
+                    Lexer.consume()
+                }
+            }
+            Lexer.expect(")")
+        }
+        val body_tokens = []
+        // Collect tokens until ENDM
+        while true {
+            val tok = Lexer.consume()
+            if tok == null {
+                error("Unexpected EOF in macro definition")
+            }
+            if tok.type == "ENDM" {
+                break
+            }
+            body_tokens.append(tok)
+        }
+        macros[name] = Macro{name: name, params: params, body_tokens: body_tokens}
+    }
+
     func expand_macros() {
-        var expanded = []
+        var expanded_instructions = []
         for instr in Parser.instructions {
             if macros.contains_key(instr.mnemonic) {
-                // Macro expansion - for simplicity, no parameters in this example
-                expanded.extend(macros[instr.mnemonic])
+                val macro = macros[instr.mnemonic]
+                // Simple param substitution and recursive expansion
+                val expanded = expand_macro_call(macro, instr.operands)
+                expanded_instructions.extend(expanded)
             } else {
-                expanded.append(instr)
+                expanded_instructions.append(instr)
             }
         }
-        Parser.instructions = expanded
+        Parser.instructions = expanded_instructions
+    }
+
+    func expand_macro_call(macro: Macro, args: list<Parser.Operand>) -> list<Parser.Instruction> {
+        if args.length != macro.params.length {
+            error("Macro " + macro.name + " expects " + macro.params.length + " arguments but got " + args.length)
+        }
+        // Map params to args
+        var param_map = dict<string, string>()
+        for i in 0 .. macro.params.length - 1 {
+            param_map[macro.params[i]] = args[i].text
+        }
+
+        // Token substitution
+        val substituted_tokens = []
+        for tok in macro.body_tokens {
+            if param_map.contains_key(tok.text) {
+                substituted_tokens.append({line: tok.line, text: param_map[tok.text], type: tok.type})
+            } else {
+                substituted_tokens.append(tok)
+            }
+        }
+
+        // Parse substituted tokens into instructions (recursively expand)
+        val old_tokens = Lexer.tokens
+        val old_line = Lexer.current_line
+        Lexer.tokens = substituted_tokens
+        Lexer.current_line = substituted_tokens[0]?.line ?? 1
+
+        val old_instructions = Parser.instructions
+        Parser.instructions = []
+        Parser.parse()
+
+        Lexer.tokens = old_tokens
+        Lexer.current_line = old_line
+
+        val result = Parser.instructions
+        Parser.instructions = old_instructions
+        return result
     }
 }
