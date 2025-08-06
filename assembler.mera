@@ -1,0 +1,278 @@
+capsule FileIO {
+    // Attempt file write binary function (assuming MeraLang runtime)
+    func write_binary(filename: string, data: bytes) {
+        // If native file_write_binary is supported
+        try {
+            file_write_binary(filename, data)
+            say("File written: " + filename)
+        } catch e {
+            // Fallback (if possible)
+            say("file_write_binary not supported or failed: " + e.toString())
+            error("Cannot write file without file_write_binary")
+        }
+    }
+}
+
+capsule Dodecagram {
+    // Map single char to digit 0..11
+    func char_to_digit(ch: char) -> int {
+        if ch >= '0' && ch <= '9' {
+            return (int)ch - (int)'0'
+        } else if ch == 'a' {
+            return 10
+        } else if ch == 'b' {
+            return 11
+        } else {
+            error("Invalid dodecagram char: " + ch)
+        }
+    }
+
+    // Map digit 0..11 to char
+    func digit_to_char(d: int) -> char {
+        if d >= 0 && d <= 9 {
+            return (char)((int)'0' + d)
+        } else if d == 10 {
+            return 'a'
+        } else if d == 11 {
+            return 'b'
+        } else {
+            error("Invalid digit to char: " + d)
+        }
+    }
+
+    // Convert byte to 3-digit base-12 string (since 12^3=1728 > 255)
+    func byte_to_dodecagrams(b: int) -> string {
+        val d1 = b % 12
+        val d2 = (b / 12) % 12
+        val d3 = (b / 144) % 12
+        return string_concat(
+            digit_to_char(d3),
+            digit_to_char(d2),
+            digit_to_char(d1)
+        )
+    }
+
+    // Convert dodecagram 3-digit string to byte
+    func dodecagrams_to_byte(s: string) -> int {
+        if s.length != 3 {
+            error("Invalid dodecagram string length for byte: " + s)
+        }
+        val d3 = char_to_digit(s[0])
+        val d2 = char_to_digit(s[1])
+        val d1 = char_to_digit(s[2])
+        return d3 * 144 + d2 * 12 + d1
+    }
+
+    // Convert opcode byte array to dodecagram string
+    func bytes_to_dodecagrams(bytes: bytes) -> string {
+        var result = ""
+        for b in bytes {
+            result += byte_to_dodecagrams(b)
+        }
+        return result
+    }
+
+    // Convert dodecagram string to opcode bytes
+    func dodecagrams_to_bytes(s: string) -> bytes {
+        val result = []
+        var i = 0
+        while i < s.length {
+            val slice = s.substr(i, 3)
+            result.append(dodecagrams_to_byte(slice))
+            i += 3
+        }
+        return result
+    }
+}
+
+capsule OpcodeTable {
+    import Dodecagram
+
+    // Map assembly mnemonics (with fixed operands) to x86 machine opcode bytes
+    // Example subset for Windows x86 minimal program
+    var table = {
+        // mov eax, imm32: B8 + imm32
+        "mov_eax_imm32": [0xB8],
+        // xor eax, eax
+        "xor_eax_eax": [0x31, 0xC0],
+        // push ebp
+        "push_ebp": [0x55],
+        // mov ebp, esp
+        "mov_ebp_esp": [0x8B, 0xEC],
+        // sub esp, imm8
+        "sub_esp_imm8": [0x83, 0xEC],
+        // call dword ptr [addr]
+        "call_dword_ptr": [0xFF, 0x15], 
+        // ret
+        "ret": [0xC3],
+        // int 0x80 (Linux syscall, included for example)
+        "int_80": [0xCD, 0x80]
+    }
+
+    // Helper to encode imm32 to bytes little endian
+    func imm32_to_bytes(val: int) -> bytes {
+        return [
+            (val & 0xFF),
+            ((val >> 8) & 0xFF),
+            ((val >> 16) & 0xFF),
+            ((val >> 24) & 0xFF)
+        ]
+    }
+
+    // Build opcode bytes from mnemonic and optional imm32
+    func get_opcode_bytes(mnemonic: string, imm32: int?) -> bytes {
+        val base_bytes = table[mnemonic]
+        if base_bytes == null {
+            error("Unknown mnemonic: " + mnemonic)
+        }
+        val result = base_bytes.clone()
+        if imm32 != null {
+            for b in imm32_to_bytes(imm32) {
+                result.append(b)
+            }
+        }
+        return result
+    }
+}
+
+capsule PEHeader {
+    import Dodecagram
+
+    // Minimal DOS stub header (same as before)
+    val dos_stub: bytes = [
+        0x4D,0x5A,0x90,0x00,0x03,0x00,0x00,0x00,0x04,0x00,0x00,0x00,0xFF,0xFF,0x00,0x00,
+        0xB8,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x40,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+        0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x80,0x00,0x00,0x00,
+        0x0E,0x1F,0xBA,0x0E,0x00,0xB4,0x09,0xCD,0x21,0xB8,0x01,0x4C,0xCD,0x21,0x54,0x68
+    ]
+
+    val pe_sig: bytes = [0x50, 0x45, 0x00, 0x00]
+
+    val coff_header: bytes = [
+        0x4C, 0x01,
+        0x01, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0xE0, 0x00
+    ]
+
+    val optional_header: bytes = [
+        0x0B, 0x01, 0x08, 0x00, 0x00, 0x02, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00,
+        0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00,
+        0x00, 0x10, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
+        0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x10, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+        0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x10, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+        0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x10, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+        0x10, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+        0x10, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00
+    ]
+
+    func section_header(code_size: int) -> bytes {
+        val header = [
+            0x2E, 0x74, 0x65, 0x78, 0x74, 0x00, 0x00, 0x00,
+            0x00, 0x02, 0x00, 0x00,
+            0x00, 0x10, 0x00, 0x00,
+            0x00, 0x02, 0x00, 0x00,
+            0x00, 0x04, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00,
+            0x00, 0x00,
+            0x20, 0x00, 0x00, 0x60
+        ]
+        // patch VirtualSize and SizeOfRawData with code_size
+        header[8] = (code_size & 0xFF)
+        header[9] = ((code_size >> 8) & 0xFF)
+        header[10] = ((code_size >> 16) & 0xFF)
+        header[11] = ((code_size >> 24) & 0xFF)
+        header[16] = (code_size & 0xFF)
+        header[17] = ((code_size >> 8) & 0xFF)
+        header[18] = ((code_size >> 16) & 0xFF)
+        header[19] = ((code_size >> 24) & 0xFF)
+        return header
+    }
+}
+
+capsule Assembler {
+    import Dodecagram
+    import OpcodeTable
+    import PEHeader
+    import FileIO
+
+    var code_bytes: bytes = []
+
+    // Assemble a very limited set of instructions for demo
+    // Instructions list (mnemonic, optional imm32)
+    var instructions = [
+        ("xor_eax_eax", null),      // xor eax, eax
+        ("mov_eax_imm32", 0x00000001), // mov eax, 1
+        ("ret", null)               // ret
+    ]
+
+    // Convert all instructions to opcode bytes and append to code_bytes
+    func assemble_instructions() {
+        for (mnemonic, imm) in instructions {
+            val op_bytes = OpcodeTable.get_opcode_bytes(mnemonic, imm)
+            code_bytes.extend(op_bytes)
+        }
+    }
+
+    func build_pe_file() -> bytes {
+        // Pad code to file alignment 512
+        val code_len = code_bytes.length
+        val padded_len = ((code_len + 0x1FF) & ~0x1FF)
+        val padding = padded_len - code_len
+        for _ in 0 .. padding - 1 {
+            code_bytes.append(0)
+        }
+
+        val file_bytes = []
+        file_bytes.extend(PEHeader.dos_stub)
+        val pe_header_offset = 0x80
+        val current_len = file_bytes.length
+        for _ in 0 .. pe_header_offset - current_len - 1 {
+            file_bytes.append(0)
+        }
+
+        file_bytes.extend(PEHeader.pe_sig)
+        file_bytes.extend(PEHeader.coff_header)
+        file_bytes.extend(PEHeader.optional_header)
+        file_bytes.extend(PEHeader.section_header(padded_len))
+
+        val headers_len = file_bytes.length
+        for _ in 0 .. 0x400 - headers_len - 1 {
+            file_bytes.append(0)
+        }
+
+        file_bytes.extend(code_bytes)
+        return file_bytes
+    }
+
+    func write_exe(filename: string) {
+        val pe_bytes = build_pe_file()
+        FileIO.write_binary(filename, pe_bytes)
+    }
+}
+
+capsule Main {
+    import Assembler
+
+    func main() {
+        Assembler.assemble_instructions()
+        Assembler.write_exe("output.exe")
+        say("Assembled output.exe (" + Assembler.code_bytes.length + " bytes of code)")
+    }
+}
+
+Main.main()
