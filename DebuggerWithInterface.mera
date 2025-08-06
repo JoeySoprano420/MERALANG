@@ -1,0 +1,65 @@
+capsule Debugger {
+    // Mapping from instruction address to source line (for disassembly / source view)
+    var source_map: dict<int, string> = {}
+
+    // Set of breakpoint addresses
+    var breakpoints: set<int> = {}
+
+    // Variables to watch with their current values (e.g., by name)
+    var watchpoints: dict<string, int> = {}
+
+    // Current program counter address
+    var current_pc: int = 0
+
+    // CPU registers state (e.g., rax, rbx, rcx, ...)
+    var registers: dict<string, int64> = {}
+
+    // Record source line for given address (disassembly / debug info)
+    func record_source(address: int, line: string) {
+        source_map[address] = line
+    }
+
+    // Add breakpoint at address
+    func set_breakpoint(addr: int) {
+        breakpoints.add(addr)
+    }
+
+    // Remove breakpoint at address
+    func remove_breakpoint(addr: int) {
+        breakpoints.remove(addr)
+    }
+
+    // Check if breakpoint exists at address
+    func check_breakpoint(addr: int) -> bool {
+        return breakpoints.contains(addr)
+    }
+
+    // Get source line associated with address
+    func get_source_line(addr: int) -> string? {
+        return source_map.get(addr, null)
+    }
+
+    // Called on each instruction execution with current address
+    func on_instruction(addr: int) {
+        current_pc = addr
+        if check_breakpoint(addr) {
+            pause_execution()
+        }
+    }
+
+    // Read register value by name (default 0)
+    func read_register(name: string) -> int64 {
+        return registers.get(name, 0)
+    }
+
+    // Write value to register
+    func write_register(name: string, val: int64) {
+        registers[name] = val
+    }
+
+    // Pause execution - placeholder for UI/CLI interaction
+    func pause_execution() {
+        say("Execution paused at 0x" + current_pc.to_string(16))
+        // Hook in UI or CLI to wait for user commands: step, continue, inspect, etc.
+    }
+}
