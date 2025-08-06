@@ -1,0 +1,3 @@
+capsule MacroProcessor {
+    // Implement macro expansion and debug info as needed
+}
