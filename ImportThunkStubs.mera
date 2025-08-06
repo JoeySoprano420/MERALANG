@@ -1,0 +1,20 @@
+capsule ImportThunks {
+    // Predefined import tables for common DLLs & APIs
+
+    var dlls = ["kernel32.dll", "user32.dll", "gdi32.dll", "advapi32.dll"]
+
+    var functions = dict {
+        "kernel32.dll": ["ExitProcess", "GetLastError", "CreateFileA"],
+        "user32.dll": ["MessageBoxA", "DispatchMessageA", "TranslateMessage"],
+        "gdi32.dll": ["CreateCompatibleDC", "DeleteDC"],
+        "advapi32.dll": ["RegOpenKeyExA", "RegCloseKey"]
+    }
+
+    func build_import_table() -> bytes {
+        var table = bytes()
+        // Build IMAGE_IMPORT_DESCRIPTOR entries, IAT, lookup tables, name strings
+        // Layout according to PE specification with thunk tables and hints/names
+        // Generate thunk stubs pointing to correct function RVAs
+        return table
+    }
+}
