@@ -1,4 +1,5 @@
 capsule Main {
+    import CLI
     import Lexer
     import Parser
     import MacroProcessor
@@ -15,13 +16,20 @@ capsule Main {
     """
 
     func main() {
-        Lexer.tokenize(sample_source)
-        Parser.parse()
-        MacroProcessor.expand_macros()
-        Assembler.first_pass()
-        Assembler.second_pass()
-        Assembler.write_exe("output.exe")
-        say("Assembled and wrote output.exe")
+        val args = get_cli_args()
+        if args.length == 0 {
+            // No CLI args: run sample assembly pipeline
+            Lexer.tokenize(sample_source)
+            Parser.parse()
+            MacroProcessor.expand_macros()
+            Assembler.first_pass()
+            Assembler.second_pass()
+            Assembler.write_exe("output.exe")
+            say("Assembled and wrote output.exe (sample source)")
+        } else {
+            // Run CLI mode with arguments
+            CLI.run(args)
+        }
     }
 }
 
