@@ -1,0 +1,57 @@
+capsule Debugger {
+    var breakpoints: set<int> = {}
+    var watch_vars: dict<string,int64> = {}
+    var current_pc: int = 0
+    var registers: dict<string,int64> = {}
+
+    func set_breakpoint(addr: int) { breakpoints.add(addr) }
+    func remove_breakpoint(addr: int) { breakpoints.remove(addr) }
+    func toggle_breakpoint(addr: int) {
+        if breakpoints.contains(addr) {
+            breakpoints.remove(addr)
+        } else {
+            breakpoints.add(addr)
+        }
+    }
+
+    func is_breakpoint(addr: int) -> bool { return breakpoints.contains(addr) }
+    func update_register(name: string, value: int64) { registers[name] = value }
+    func read_register(name: string) -> int64 { return registers.get(name, 0) }
+
+    func on_instruction(addr: int) {
+        current_pc = addr
+        if is_breakpoint(addr) {
+            pause_execution()
+        }
+    }
+
+    func pause_execution() {
+        say("Paused at 0x" + current_pc.to_string(16))
+        // Provide UI interaction for stepping, inspecting watches, etc.
+    }
+}
+
+capsule DebuggerGUI {
+    import Debugger
+
+    func render() {
+        draw_window("Debugger")
+
+        draw_text("PC: 0x" + Debugger.current_pc.to_string(16))
+        draw_separator()
+
+        for reg in ["rax","rbx","rcx","rdx","rsi","rdi","rsp","rbp","rip"] {
+            draw_text(reg + ": 0x" + Debugger.read_register(reg).to_string(16))
+        }
+
+        draw_separator()
+        draw_text("Breakpoints:")
+        for bp in Debugger.breakpoints {
+            draw_text("  0x" + bp.to_string(16))
+        }
+
+        if button("Step") { Debugger.step() }
+        if button("Continue") { Debugger.continue_execution() }
+        if button("Pause") { Debugger.pause_execution() }
+    }
+}
