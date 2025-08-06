@@ -1,0 +1,75 @@
+capsule BuildGraph {
+    var dependencies: dict<string, set<string>> = {}
+    var built_files: set<string> = {}
+
+    func add_module(file: string, deps: list<string>) {
+        dependencies[file] = deps.to_set()
+    }
+
+    func get_build_order() -> list<string> {
+        var visited = set<string>()
+        var build_order = list<string>()
+
+        func visit(file: string) {
+            if visited.contains(file) {
+                return
+            }
+            visited.add(file)
+            for dep in dependencies.get(file, []) {
+                visit(dep)
+            }
+            build_order.append(file)
+        }
+
+        for file in dependencies.keys() {
+            visit(file)
+        }
+        return build_order
+    }
+
+    func build_incremental(build_list: list<string>) {
+        for file in build_list {
+            val cached = BuildCache.check(file)
+            if cached != null {
+                say("Skipping " + file + ", using cached build")
+                continue
+            }
+            say("Building " + file)
+            // Build file logic here: lex, parse, macro expand, assemble
+            // Update cache
+            BuildCache.store(file)
+        }
+    }
+}
+
+capsule CLI {
+    import BuildGraph
+
+    func run(args: list<string>) {
+        if args.length == 0 {
+            say("Usage: meraasm <entry_files...>")
+            return
+        }
+
+        // For simplicity, assume args are entry points
+        for entry in args {
+            val deps = BuildSystem.parse_dependencies(entry)
+            BuildGraph.add_module(entry, deps)
+        }
+
+        val build_order = BuildGraph.get_build_order()
+        BuildGraph.build_incremental(build_order)
+        say("Build finished.")
+    }
+}
+
+capsule Main {
+    import CLI
+
+    func main() {
+        val args = get_cli_args()
+        CLI.run(args)
+    }
+}
+
+Main.main()
