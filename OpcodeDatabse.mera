@@ -1,0 +1,129 @@
+capsule OpcodeDatabase {
+    import Dodecagram
+
+    // Map: mnemonic + operand patterns -> opcode bytes + encoding rules
+    // In practice, thousands of instructions — here is a scalable example:
+
+    struct OpcodeEntry {
+        mnemonic: string
+        operand_types: list<string> // e.g., ["REGISTER", "IMMEDIATE"]
+        encode_func: func(list<Parser.Operand>, int) -> bytes
+    }
+
+    var opcode_table: list<OpcodeEntry> = []
+
+    func register_opcodes() {
+        opcode_table.append(OpcodeEntry{
+            mnemonic: "mov",
+            operand_types: ["REGISTER", "IMMEDIATE"],
+            encode_func: encode_mov_reg_imm
+        })
+        opcode_table.append(OpcodeEntry{
+            mnemonic: "xor",
+            operand_types: ["REGISTER", "REGISTER"],
+            encode_func: encode_xor_reg_reg
+        })
+        opcode_table.append(OpcodeEntry{
+            mnemonic: "call",
+            operand_types: ["LABEL"],
+            encode_func: encode_call_label
+        })
+        opcode_table.append(OpcodeEntry{
+            mnemonic: "ret",
+            operand_types: [],
+            encode_func: encode_ret
+        })
+        // Add more opcode registrations here
+    }
+
+    func encode(instruction: Parser.Instruction, current_address: int) -> bytes {
+        for entry in opcode_table {
+            if entry.mnemonic == instruction.mnemonic && entry.operand_types.length == instruction.operands.length {
+                // Basic operand type match; more sophisticated pattern matching possible
+                var match = true
+                for i in 0 .. instruction.operands.length - 1 {
+                    if instruction.operands[i].type != entry.operand_types[i] {
+                        match = false
+                        break
+                    }
+                }
+                if match {
+                    return entry.encode_func(instruction.operands, current_address)
+                }
+            }
+        }
+        error("Unknown or unsupported instruction: " + instruction.mnemonic)
+    }
+
+    // Example encoder functions
+    func encode_mov_reg_imm(ops: list<Parser.Operand>, _addr: int) -> bytes {
+        val reg_codes = {
+            "eax": 0,
+            "ecx": 1,
+            "edx": 2,
+            "ebx": 3,
+            "esp": 4,
+            "ebp": 5,
+            "esi": 6,
+            "edi": 7
+        }
+        val reg = ops[0].text
+        val imm = parse_imm(ops[1].text)
+        val opcode = 0xB8 + reg_codes[reg]
+        return [opcode] + imm32_to_bytes(imm)
+    }
+
+    func encode_xor_reg_reg(ops: list<Parser.Operand>, _addr: int) -> bytes {
+        val reg_codes = {
+            "eax": 0,
+            "ecx": 1,
+            "edx": 2,
+            "ebx": 3,
+            "esp": 4,
+            "ebp": 5,
+            "esi": 6,
+            "edi": 7
+        }
+        val reg1 = reg_codes[ops[0].text]
+        val reg2 = reg_codes[ops[1].text]
+        val modrm = 0xC0 + reg2 * 8 + reg1
+        return [0x31, modrm]
+    }
+
+    func encode_call_label(ops: list<Parser.Operand>, current_address: int) -> bytes {
+        RelocationTable.add(current_address + 1, ops[0].text)
+        return [0xE8, 0, 0, 0, 0]
+    }
+
+    func encode_ret(_ops: list<Parser.Operand>, _addr: int) -> bytes {
+        return [0xC3]
+    }
+
+    func parse_imm(text: string) -> int {
+        if text.starts_with("0x") {
+            return parse_hex(text)
+        }
+        return int(text)
+    }
+
+    func parse_hex(s: string) -> int {
+        val hex_str = if s.starts_with("0x") then s.substr(2) else s
+        var result = 0
+        for ch in hex_str.to_lower() {
+            val digit = if ch >= '0' && ch <= '9' then (int)ch - (int)'0'
+                        else if ch >= 'a' && ch <= 'f' then 10 + ((int)ch - (int)'a')
+                        else error("Invalid hex digit: " + ch)
+            result = result * 16 + digit
+        }
+        return result
+    }
+
+    func imm32_to_bytes(val: int) -> bytes {
+        return [
+            val & 0xFF,
+            (val >> 8) & 0xFF,
+            (val >> 16) & 0xFF,
+            (val >> 24) & 0xFF
+        ]
+    }
+}
