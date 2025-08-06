@@ -1,0 +1,130 @@
+capsule BuildGraph {
+    var nodes: dict<string, list<string>> = {}  // filename -> dependencies
+
+    func add_node(file: string, deps: list<string>) {
+        nodes[file] = deps
+    }
+
+    func build_order() -> list<string> {
+        var visited = set<string>()
+        var result = list<string>()
+
+        func visit(n: string) {
+            if visited.contains(n) { return }
+            visited.add(n)
+            for dep in nodes.get(n, []) {
+                visit(dep)
+            }
+            result.append(n)
+        }
+
+        for node in nodes.keys() {
+            visit(node)
+        }
+        return result
+    }
+}
+
+capsule BuildSystem {
+    import FileIO
+    import Hashing
+    import Lexer
+    import Parser
+    import MacroProcessor
+    import Assembler
+    import Linker
+
+    var dep_graph: dict<string,list<string>> = {}
+    var build_cache: dict<string,string> = {}
+
+    func parse_dependencies(file: string) -> list<string> {
+        val deps = list<string>()
+        val src = file_read_text(file)
+        for line in src.split("\n") {
+            val trimmed = line.trim()
+            if trimmed.starts_with("#include") {
+                val inc = extract_include_filename(trimmed)
+                deps.append(inc)
+            } else if trimmed.starts_with("import") {
+                val imp = extract_import_filename(trimmed)
+                deps.append(imp)
+            }
+        }
+        return deps
+    }
+
+    func build_project(entry_files: list<string>) {
+        // Build dependency graph
+        for file in entry_files {
+            dep_graph[file] = parse_dependencies(file)
+        }
+
+        val graph = BuildGraph()
+        for (file, deps) in dep_graph {
+            graph.add_node(file, deps)
+        }
+
+        val order = graph.build_order()
+
+        for file in order {
+            val source_hash = Hashing.file_sha256(file)
+            val cache_key = file + ":" + source_hash
+            if build_cache.contains_key(cache_key) {
+                say("Skipping " + file + ", using cached build.")
+                continue
+            }
+
+            say("Building " + file)
+            val src = file_read_text(file)
+
+            Lexer.tokenize(src)
+            Parser.parse()
+            MacroProcessor.expand_macros()
+            Assembler.first_pass()
+            Assembler.second_pass()
+
+            Linker.add_section(".text", Assembler.code_bytes)
+            Linker.link()
+
+            Assembler.write_exe(file + ".exe")
+
+            build_cache[cache_key] = file + ".exe"
+        }
+    }
+}
+
+capsule CLI {
+    import ConcurrentBuildSystem
+    import BuildGraph
+    import BuildSystem
+
+    func parse_sources(args: list<string>) -> list<string> {
+        // Simple: treat all args as source files
+        return args
+    }
+
+    func find_dependencies(file: string) -> list<string> {
+        return BuildSystem.parse_dependencies(file)
+    }
+
+    func run(args: list<string>) {
+        val sources = parse_sources(args)
+        val graph = BuildGraph()
+        for src in sources {
+            graph.add_node(src, find_dependencies(src))
+        }
+        val order = graph.build_order()
+
+        // Launch concurrent lex+parse for all files in order
+        val parse_tasks = list<ConcurrentBuildSystem.TaskHandle>()
+        for file in order {
+            parse_tasks.append(ConcurrentBuildSystem.launch_lex_parse(file))
+        }
+
+        val parsed_results = ConcurrentBuildSystem.wait_all_tasks()
+
+        // TODO: Parallel macro expansion, assembly, linking here similarly
+
+        say("Build completed.")
+    }
+}
