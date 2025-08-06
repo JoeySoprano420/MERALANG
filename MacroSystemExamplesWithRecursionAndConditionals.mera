@@ -12,3 +12,22 @@ ENDM
 start:
     factorial(5)
     call exit_process
+
+; factorial recursive macro example
+
+MACRO factorial(n)
+    IF n == 0
+        mov eax, 1
+    ELSE
+        factorial(n - 1)
+        mul n
+    ENDIF
+ENDM
+
+; conditional assembly example
+
+IF DEBUG
+    mov eax, 42
+ELSE
+    mov eax, 0
+ENDIF
