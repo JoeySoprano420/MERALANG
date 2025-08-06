@@ -1,0 +1,27 @@
+capsule OpcodeDatabaseGenerator {
+    // Loads large JSON or CSV of Intel and AMD opcodes, converts to OpcodeEntry structures
+    func load_from_external_spec(path: string) {
+        val raw_data = file_read_text(path)
+        val parsed = parse_json(raw_data)  // or parse_csv
+
+        // For each opcode entry in parsed spec:
+        for op_entry in parsed.opcodes {
+            var entry = OpcodeEntry{
+                mnemonic: op_entry.mnemonic.to_lower(),
+                operand_patterns: op_entry.operand_types,
+                encode_func: create_encoder_from_spec(op_entry.encoding_spec)
+            }
+            OpcodeDatabase.opcode_table.append(entry)
+        }
+    }
+
+    // Factory generating encoding functions based on specification data
+    func create_encoder_from_spec(encoding_spec: dict) -> func(list<Parser.Operand>, int) -> bytes {
+        return func(ops: list<Parser.Operand>, addr: int) -> bytes {
+            // Interpret encoding spec to produce opcode bytes including prefixes, modrm, sib, imm, etc.
+            var bytes = []
+            // ... complex logic depending on encoding spec ...
+            return bytes
+        }
+    }
+}
