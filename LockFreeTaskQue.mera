@@ -1,0 +1,51 @@
+capsule LockFreeTaskQueue {
+    var head: atomic_pointer<TaskNode> = null
+    var tail: atomic_pointer<TaskNode> = null
+
+    struct TaskNode {
+        task: func() -> void
+        next: atomic_pointer<TaskNode>
+    }
+
+    func push(task: func() -> void) {
+        val node = new TaskNode()
+        node.task = task
+        node.next = null
+
+        while true {
+            val last = tail.load()
+            val next = last.next.load()
+            if last == tail.load() {
+                if next == null {
+                    if last.next.compare_exchange(null, node) {
+                        tail.compare_exchange(last, node)
+                        return
+                    }
+                } else {
+                    tail.compare_exchange(last, next)
+                }
+            }
+        }
+    }
+
+    func pop() -> func() -> void? {
+        while true {
+            val first = head.load()
+            val last = tail.load()
+            val next = first.next.load()
+            if first == head.load() {
+                if first == last {
+                    if next == null {
+                        return null
+                    }
+                    tail.compare_exchange(last, next)
+                } else {
+                    val task = next.task
+                    if head.compare_exchange(first, next) {
+                        return task
+                    }
+                }
+            }
+        }
+    }
+}
