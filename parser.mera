@@ -1,9 +1,15 @@
 capsule Parser {
     import Lexer
+    import MacroProcessor
+
+    struct Operand {
+        text: string
+        type: string // REGISTER, IMMEDIATE, MEMORY, LABEL, MACRO_ARG, etc.
+    }
 
     struct Instruction {
         mnemonic: string
-        operands: list<string>
+        operands: list<Operand>
         line: int
     }
 
@@ -14,51 +20,76 @@ capsule Parser {
 
     var instructions: list<Instruction> = []
     var labels: dict<string, Label> = {}
+    var current_section: string = ".text"
 
     func parse() {
         while true {
             val token = Lexer.peek()
-            if token == null {
+            if token == null || token.type == "EOF" {
                 break
             }
-            if token.ends_with(":") {
-                val label_name = token.substr(0, token.length - 1)
-                Lexer.consume()
-                if labels.contains_key(label_name) {
-                    error("Duplicate label: " + label_name)
+
+            if token.type == "IDENTIFIER" && Lexer.tokens.length > 1 {
+                val next_token = Lexer.tokens[1]
+                if next_token.text == ":" {
+                    // Label
+                    val label_name = Lexer.consume()!.text
+                    Lexer.consume() // consume ':'
+                    if labels.contains_key(label_name) {
+                        error("Duplicate label " + label_name + " at line " + token.line)
+                    }
+                    labels[label_name] = Label{name: label_name, address: -1}
+                    continue
                 }
-                labels[label_name] = Label{name: label_name, address: -1}
-            } else if token.starts_with(".") {
-                // Directive (not implemented in this example)
-                Lexer.consume()
-                // Optionally parse directive operands
-            } else {
-                // Parse instruction mnemonic
-                val mnemonic = Lexer.consume()!.to_lower()
-                val operands = []
-                var expect_comma = false
-                while true {
-                    val next_tok = Lexer.peek()
-                    if next_tok == null || next_tok == "" || next_tok == "\n" {
-                        break
-                    }
-                    if next_tok == "," {
-                        if !expect_comma {
-                            error("Unexpected comma")
-                        }
-                        Lexer.consume()
-                        expect_comma = false
-                        continue
-                    }
-                    if expect_comma {
-                        error("Expected comma")
-                    }
-                    val op = Lexer.consume()!
-                    operands.append(op)
-                    expect_comma = true
-                }
-                instructions.append(Instruction{mnemonic: mnemonic, operands: operands, line: Lexer.current_line})
             }
+
+            if token.type == "DIRECTIVE" {
+                // Handle section directives, macros, etc.
+                val directive = Lexer.consume()!.text
+                if directive.to_lower() == ".section" {
+                    val section_name = Lexer.consume()!.text
+                    current_section = section_name
+                } else {
+                    // Other directives ...
+                }
+                continue
+            }
+
+            // Parse instruction mnemonic
+            val mnemonic = Lexer.consume()!.text.to_lower()
+            val operands = parse_operands()
+            instructions.append(Instruction{mnemonic: mnemonic, operands: operands, line: token.line})
         }
+    }
+
+    func parse_operands() -> list<Operand> {
+        var ops = []
+        while true {
+            val tok = Lexer.peek()
+            if tok == null || tok.type in ["EOF", "IDENTIFIER", "DIRECTIVE", "MACRO", "ENDM", "COND", "COLON"] {
+                break
+            }
+            if tok.type == "COMMA" {
+                Lexer.consume()
+                continue
+            }
+            val op_token = Lexer.consume()!
+            ops.append(Operand{text: op_token.text, type: classify_operand(op_token.text)})
+        }
+        return ops
+    }
+
+    func classify_operand(text: string) -> string {
+        // Simplistic classification; extend as needed
+        if text in ["eax","ebx","ecx","edx","esi","edi","esp","ebp"] {
+            return "REGISTER"
+        }
+        if text.starts_with("0x") || text.is_numeric() {
+            return "IMMEDIATE"
+        }
+        if text.starts_with("[") && text.ends_with("]") {
+            return "MEMORY"
+        }
+        return "LABEL"
     }
 }
