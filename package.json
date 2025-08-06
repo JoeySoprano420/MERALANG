@@ -1,0 +1,24 @@
+{
+  "name": "mera-lang",
+  "displayName": "MeraLang",
+  "description": "Syntax highlighting for MeraLang (.mera files)",
+  "version": "0.0.1",
+  "publisher": "your-name",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [{
+      "id": "meralang",
+      "aliases": ["MeraLang", "meralang"],
+      "extensions": [".mera"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "meralang",
+      "scopeName": "source.meralang",
+      "path": "./syntaxes/meralang.tmLanguage.json"
+    }]
+  }
+}
