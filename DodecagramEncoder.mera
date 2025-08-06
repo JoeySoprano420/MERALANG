@@ -1,0 +1,11 @@
+capsule DodecagramEncoder {
+    import Dodecagram
+
+    func encode_bytes_to_dodecagram(bytes: bytes) -> string {
+        var result = ""
+        for b in bytes {
+            result += Dodecagram.byte_to_dodecagrams(b)
+        }
+        return result
+    }
+}
