@@ -1,0 +1,77 @@
+{
+  "scopeName": "source.meralang",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#keywords" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#operators" },
+    { "include": "#types" },
+    { "include": "#macros" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.meralang",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.meralang",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.meralang",
+          "match": "\\b(capsule|func|var|const|import|return|if|else|while|for|break|continue|macro|endmacro|when|true|false)\\b"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.meralang",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [{ "match": "\\\\.", "name": "constant.character.escape.meralang" }]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.meralang",
+          "match": "\\b0x[0-9a-fA-F]+\\b|\\b\\d+(\\.\\d+)?\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.meralang",
+          "match": "[+\\-*/%=&|!<>]+"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.meralang",
+          "match": "\\b(int|int64|float|double|bool|string|bytes|void)\\b"
+        }
+      ]
+    },
+    "macros": {
+      "patterns": [
+        {
+          "name": "entity.name.function.meralang",
+          "match": "\\bmacro\\b|\\bendmacro\\b"
+        }
+      ]
+    }
+  }
+}
