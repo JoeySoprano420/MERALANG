@@ -1,0 +1,58 @@
+capsule PEBuilder {
+    // Builds PE headers, sections, and integrates import thunk stubs for Windows DLLs
+
+    func build_pe_file(code_section: bytes, import_table: bytes) -> bytes {
+        var pe_file = bytes()
+
+        pe_file.extend(build_dos_stub())
+        pe_file.extend(build_pe_signature())
+        pe_file.extend(build_coff_header())
+        pe_file.extend(build_optional_header(code_section.length + import_table.length))
+        pe_file.extend(build_section_headers(code_section.length, import_table.length))
+        pe_file.extend(pad_to_offset(0x400))  // Align sections start
+
+        // Code section
+        pe_file.extend(code_section)
+        pe_file.extend(pad_to_offset(0x2000))  // Align import table
+
+        // Import Table Section
+        pe_file.extend(import_table)
+
+        return pe_file
+    }
+
+    func build_import_table() -> bytes {
+        var import_table = bytes()
+        import_table.extend(build_import_descriptors())
+        import_table.extend(build_import_lookup_tables())
+        import_table.extend(build_thunk_stubs())
+        import_table.extend(build_dll_and_function_names())
+        return import_table
+    }
+
+    // Stub: Implement the detailed layouts per PE/COFF spec, including:
+    // - IMAGE_IMPORT_DESCRIPTOR array (with null terminator)
+    // - Import Lookup Table and Import Address Table (thunk arrays)
+    // - DLL name strings
+    // - Function name hint/name arrays
+    // See Microsoft PE/COFF specification for exact byte layouts.
+
+    func pad_to_offset(offset: int) -> bytes {
+        var padding = bytes()
+        while pe_file.length < offset {
+            padding.append(0)
+        }
+        return padding
+    }
+
+    // Example implementations for stub functions:
+    func build_dos_stub() -> bytes { ... }
+    func build_pe_signature() -> bytes { ... }
+    func build_coff_header() -> bytes { ... }
+    func build_optional_header(size: int) -> bytes { ... }
+    func build_section_headers(code_size: int, import_size: int) -> bytes { ... }
+    func build_import_descriptors() -> bytes { ... }
+    func build_import_lookup_tables() -> bytes { ... }
+    func build_thunk_stubs() -> bytes { ... }
+    func build_dll_and_function_names() -> bytes { ... }
+}
