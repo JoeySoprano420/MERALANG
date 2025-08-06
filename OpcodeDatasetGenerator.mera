@@ -1,0 +1,47 @@
+capsule OpcodeDatasetGenerator {
+    func generate_x86_64_dataset() {
+        var dataset = []
+
+        // Example: Generate MOV r64, imm64 for all registers
+        val regs64 = ["rax","rcx","rdx","rbx","rsp","rbp","rsi","rdi","r8","r9","r10","r11","r12","r13","r14","r15"]
+        for i in 0 .. regs64.length - 1 {
+            val reg = regs64[i]
+            dataset.append({
+                mnemonic: "mov",
+                operand_types: ["REG64","IMM64"],
+                encode_func: func(ops: list<Parser.Operand>, addr: int) -> bytes {
+                    val rex_prefix = 0x48 | ((i >> 3) & 1)
+                    val opcode = 0xB8 + (i & 7)
+                    val imm = parse_imm64(ops[1].text)
+                    return [rex_prefix, opcode] + imm64_to_bytes(imm)
+                }
+            })
+        }
+
+        // Extend dataset with thousands of entries via parsing official spec files or tables
+
+        // Register in OpcodeDatabase
+        OpcodeDatabase.opcode_table.clear()
+        for entry in dataset {
+            OpcodeDatabase.opcode_table.append(entry)
+        }
+    }
+
+    func parse_imm64(text: string) -> int64 {
+        // Parsing 64-bit immediate values
+        return int64(parse_imm(text))
+    }
+
+    func imm64_to_bytes(val: int64) -> bytes {
+        return [
+            val & 0xFF,
+            (val >> 8) & 0xFF,
+            (val >> 16) & 0xFF,
+            (val >> 24) & 0xFF,
+            (val >> 32) & 0xFF,
+            (val >> 40) & 0xFF,
+            (val >> 48) & 0xFF,
+            (val >> 56) & 0xFF,
+        ]
+    }
+}
