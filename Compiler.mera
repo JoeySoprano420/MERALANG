@@ -1,0 +1,29 @@
+capsule JITCompiler {
+    // Store compiled IR or native bytecode for macros & opcode matches
+    var compiled_macros: dict<string, CompiledMacro> = {}
+    var compiled_opcodes: dict<string, CompiledOpcode> = {}
+
+    func compile_macro(macro_source: string) -> CompiledMacro {
+        // Translate macro source to optimized IR or native instructions
+        // Placeholder for real compile steps
+        val compiled = new CompiledMacro(macro_source)
+        compiled_macros[macro_source] = compiled
+        return compiled
+    }
+
+    func run_macro(compiled: CompiledMacro, args: list<string>) -> list<Instruction> {
+        // Efficiently expand macro using compiled code
+        return compiled.execute(args)
+    }
+
+    func compile_opcode_pattern(pattern: string) -> CompiledOpcode {
+        // Compile operand matching and encoding to optimized code
+        val compiled = new CompiledOpcode(pattern)
+        compiled_opcodes[pattern] = compiled
+        return compiled
+    }
+
+    func execute_opcode(compiled: CompiledOpcode, operands: list<Operand>) -> bytes {
+        return compiled.encode(operands)
+    }
+}
