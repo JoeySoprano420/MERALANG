@@ -1,33 +1,68 @@
 capsule Lexer {
-    var tokens: list = []
+    var tokens: list<{line:int,text:string}> = []
     var current_line: int = 1
 
-    // Simple regex or split based tokenizer for assembly source lines
     func tokenize_line(line: string) {
         val trimmed = line.trim()
         if trimmed == "" || trimmed.starts_with(";") {
             return
         }
-        val parts = trimmed.split_whitespace()
-        for part in parts {
-            tokens.append({line: current_line, text: part})
+        // Split by whitespace, also keep punctuation as separate tokens (e.g., ',', ':')
+        val raw_tokens = []
+        var temp = ""
+        for ch in trimmed {
+            if ch.is_whitespace() {
+                if temp != "" {
+                    raw_tokens.append(temp)
+                    temp = ""
+                }
+            } else if ch == ',' || ch == ':' {
+                if temp != "" {
+                    raw_tokens.append(temp)
+                    temp = ""
+                }
+                raw_tokens.append(ch.to_string())
+            } else {
+                temp += ch
+            }
         }
-        current_line += 1
+        if temp != "" {
+            raw_tokens.append(temp)
+        }
+        // Append tokens with line info
+        for t in raw_tokens {
+            tokens.append({line: current_line, text: t})
+        }
     }
 
     func tokenize(source: string) {
         val lines = source.split("\n")
         for line in lines {
             tokenize_line(line)
+            current_line += 1
         }
     }
 
-    func next_token() -> string {
+    func peek() -> string? {
+        if tokens.length == 0 {
+            return null
+        }
+        return tokens[0].text
+    }
+
+    func consume() -> string? {
         if tokens.length == 0 {
             return null
         }
         val t = tokens[0]
-        tokens = tokens[1:]
+        tokens = tokens[1..]
         return t.text
+    }
+
+    func expect(value: string) {
+        val t = consume()
+        if t == null || t.to_lower() != value.to_lower() {
+            error("Expected token '" + value + "', got '" + (t ?? "EOF") + "'")
+        }
     }
 }
