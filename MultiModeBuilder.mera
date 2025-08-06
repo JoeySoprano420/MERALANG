@@ -1,0 +1,40 @@
+capsule MultiModuleBuilder {
+    import FileSystem
+    import Hashing
+    import BuildCache
+    import DependencyGraph
+    import ConcurrentBuildSystem
+
+    var build_graph = DependencyGraph.new()
+
+    func scan_dependencies(file: string) -> list<string> {
+        val src = FileSystem.read_text(file)
+        var deps = list<string>()
+        val regex = /#include\s+"(.+?)"/g
+        var match
+        while ((match = regex.exec(src)) != null) {
+            deps.append(match[1])
+        }
+        return deps
+    }
+
+    func build_all(entry_points: list<string>) {
+        // Build dependency graph
+        for ep in entry_points {
+            build_graph.add_node(ep, scan_dependencies(ep))
+        }
+        val build_order = build_graph.topological_sort()
+
+        for file in build_order {
+            if BuildCache.is_cached(file) {
+                say("Cache hit: " + file)
+                continue
+            }
+            say("Building " + file)
+            val task = ConcurrentBuildSystem.launch_build_task(file)
+            // Wait or run async...
+            ConcurrentBuildSystem.wait_task(task)
+            BuildCache.store(file)
+        }
+    }
+}
