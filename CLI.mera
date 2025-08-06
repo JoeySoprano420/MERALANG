@@ -2,26 +2,44 @@ capsule CLI {
     import Lexer
     import Parser
     import MacroProcessor
+    import OpcodeDatabase
     import Assembler
     import Linker
 
     func run(args: list<string>) {
         if args.length == 0 {
-            say("Usage: meraasm input.asm [-o output.exe]")
+            say("Usage: meraasm <input.asm> [-o output.exe] [--debug] [--verbose]")
             return
         }
-        val filename = args[0]
-        val output = args.length > 2 && args[1] == "-o" ? args[2] : "a.exe"
+        val infile = args[0]
+        val outfile = if args.contains("-o") then args[args.index_of("-o") + 1] else "a.exe"
+        val debug = args.contains("--debug")
+        val verbose = args.contains("--verbose")
 
-        val source = file_read_text(filename)
+        val source = file_read_text(infile)
+
+        if verbose { say("Tokenizing...") }
         Lexer.tokenize(source)
+        if verbose { say("Parsing...") }
         Parser.parse()
+        if verbose { say("Expanding macros...") }
         MacroProcessor.expand_macros()
+        if verbose { say("Initializing opcode database...") }
+        OpcodeDatabase.initialize()
+
+        if verbose { say("Assembling...") }
         Assembler.first_pass()
         Assembler.second_pass()
+
+        if verbose { say("Linking...") }
         Linker.add_section(".text", Assembler.code_bytes)
         Linker.link()
-        Assembler.write_exe(output)
-        say("Assembled " + filename + " -> " + output)
+
+        if debug { say("Embedding debug info...") }
+        // Implement debug info embedding calls here
+
+        if verbose { say("Writing executable...") }
+        Assembler.write_exe(outfile)
+        say("Assembled " + infile + " -> " + outfile)
     }
 }
