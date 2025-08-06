@@ -1,14 +1,24 @@
 capsule DebuggerInterface {
-    // Embed debug info structures in PE file
-    // Support source line mappings, symbol lookups, breakpoints
+    var symbol_table: dict<int, string> = {}
+    var breakpoints: set<int> = {}
 
-    var debug_symbols: dict<int, string> = {} // addr -> source line
+    func record_symbol(address: int, symbol: string) {
+        symbol_table[address] = symbol
+    }
 
-    func record_source_line(address: int, line: string) {
-        debug_symbols[address] = line
+    func add_breakpoint(address: int) {
+        breakpoints.add(address)
+    }
+
+    func remove_breakpoint(address: int) {
+        breakpoints.remove(address)
+    }
+
+    func has_breakpoint(address: int) -> bool {
+        return breakpoints.contains(address)
     }
 
     func lookup_symbol(address: int) -> string? {
-        return debug_symbols.get(address, null)
+        return symbol_table.get(address, null)
     }
 }
