@@ -1,0 +1,56 @@
+capsule BuildGraph {
+    var nodes: dict<string, list<string>> = {}  // filename -> dependencies
+
+    func add_node(file: string, deps: list<string>) {
+        nodes[file] = deps
+    }
+
+    func build_order() -> list<string> {
+        // Topological sort of nodes to resolve build order
+        var visited = set<string>()
+        var result = list<string>()
+
+        func visit(n: string) {
+            if visited.contains(n) {
+                return
+            }
+            visited.add(n)
+            for dep in nodes.get(n, []) {
+                visit(dep)
+            }
+            result.append(n)
+        }
+
+        for node in nodes.keys() {
+            visit(node)
+        }
+        return result
+    }
+}
+
+capsule CLI {
+    import ConcurrentBuildSystem
+    import BuildGraph
+
+    func run(args: list<string>) {
+        val sources = parse_sources(args) // List of source files
+        val graph = BuildGraph()
+        // Analyze dependencies (e.g. includes, imports)
+        for src in sources {
+            graph.add_node(src, find_dependencies(src))
+        }
+        val order = graph.build_order()
+
+        val tasks = []
+        for file in order {
+            tasks.append(ConcurrentBuildSystem.launch_lex_parse(file))
+        }
+
+        val parsed_results = ConcurrentBuildSystem.wait_all_tasks()
+
+        // Parallel macro expansion, assembly, and linking similar...
+
+        // Finally write output
+        say("Build completed.")
+    }
+}
