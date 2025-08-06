@@ -8,6 +8,45 @@ capsule ConcurrentBuildSystem {
     import Hashing
     import FileIO
 
+    // --- Thread pool and concurrency management ---
+    var max_threads: int = mera_get_cpu_core_count()
+    var thread_pool: list<mera_thread> = []
+    var task_queue: mera_queue<func() -> void> = mera_queue_create()
+    var running: bool = true
+
+    // Initialize thread pool with max cores
+    func init_thread_pool() {
+        thread_pool.clear()
+        for i in 0 .. max_threads - 1 {
+            val t = mera_thread_create(worker_loop)
+            thread_pool.append(t)
+        }
+    }
+
+    func worker_loop() {
+        while running {
+            val task = task_queue.pop(timeout=100)
+            if task != null {
+                task()
+            } else {
+                mera_thread_sleep(1)
+            }
+        }
+    }
+
+    func submit_task(task: func() -> void) {
+        task_queue.push(task)
+    }
+
+    func shutdown_thread_pool() {
+        running = false
+        for t in thread_pool {
+            mera_thread_join(t)
+        }
+    }
+
+    // --- Concurrent Build System ---
+
     // Concurrent task handle type
     struct TaskHandle {
         id: int
@@ -15,7 +54,6 @@ capsule ConcurrentBuildSystem {
         done: bool
     }
 
-    // Build cache structure
     var build_cache: dict<string, bytes> = {}
     var task_counter = 0
 
@@ -30,8 +68,7 @@ capsule ConcurrentBuildSystem {
         val task_id = task_counter
         task_counter += 1
 
-        // Assume mera_async_thread is MeraLang’s concurrency primitive
-        val handle = mera_async_thread( func() -> any {
+        val handle = mera_async_thread(func() -> any {
             val src = file_read_text(file_path)
             Lexer.tokenize(src)
             Parser.parse()
@@ -53,7 +90,7 @@ capsule ConcurrentBuildSystem {
         val task_id = task_counter
         task_counter += 1
 
-        val handle = mera_async_thread( func() -> any {
+        val handle = mera_async_thread(func() -> any {
             val macro = MacroProcessor.macros[macro_name]
             val expanded = MacroProcessor.expand_macro_call(macro, args)
             macro_expansion_cache[param_hash] = expanded
@@ -67,7 +104,9 @@ capsule ConcurrentBuildSystem {
 
     func hash_macro_call(name: string, args: list<string>) -> string {
         var combined = name + ":"
-        for a in args { combined += a + ";" }
+        for a in args {
+            combined += a + ";"
+        }
         return Hashing.sha256(combined)
     }
 
@@ -76,7 +115,7 @@ capsule ConcurrentBuildSystem {
         val task_id = task_counter
         task_counter += 1
 
-        val handle = mera_async_thread( func() -> any {
+        val handle = mera_async_thread(func() -> any {
             Assembler.instructions = instructions
             Assembler.first_pass()
             Assembler.second_pass()
