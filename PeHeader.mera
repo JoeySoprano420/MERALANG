@@ -1,0 +1,72 @@
+capsule PEHeader {
+    import Dodecagram
+
+    // Same DOS stub, PE signature, COFF header, optional header as previous example
+
+    // Data for import directory for kernel32.dll and ExitProcess import
+    val import_directory_offset = 0x2000
+    val thunk_table_offset = 0x2100
+    val import_name_offset = 0x2200
+    val function_name_offset = 0x2300
+
+    // ... Define DOS stub, PE signature, COFF header, Optional header (omitted for brevity) ...
+
+    // Build Import Directory Table
+    func build_import_directory() -> bytes {
+        val dir = []
+        // IMAGE_IMPORT_DESCRIPTOR for kernel32.dll
+        // Import Lookup Table RVA, TimeDateStamp, ForwarderChain, Name RVA, Import Address Table RVA
+        dir.extend(dword_to_bytes(thunk_table_offset))   // Import Lookup Table RVA
+        dir.extend(dword_to_bytes(0))                     // TimeDateStamp
+        dir.extend(dword_to_bytes(0))                     // ForwarderChain
+        dir.extend(dword_to_bytes(import_name_offset))    // Name RVA ("kernel32.dll")
+        dir.extend(dword_to_bytes(thunk_table_offset))   // Import Address Table RVA
+
+        // Null terminator IMAGE_IMPORT_DESCRIPTOR
+        for _ in 0..19 {
+            dir.append(0)
+        }
+        return dir
+    }
+
+    func build_thunk_table() -> bytes {
+        val thunk = []
+        // RVA to Hint/Name Table (function_name_offset)
+        thunk.extend(dword_to_bytes(function_name_offset))
+        thunk.extend(dword_to_bytes(0)) // Null terminator
+        return thunk
+    }
+
+    func build_import_names() -> bytes {
+        val names = []
+        // kernel32.dll\0
+        names.extend("kernel32.dll".encode_utf8())
+        names.append(0)
+        return names
+    }
+
+    func build_function_name() -> bytes {
+        val fn = []
+        // Hint (2 bytes) + "ExitProcess\0"
+        fn.extend(word_to_bytes(0))
+        fn.extend("ExitProcess".encode_utf8())
+        fn.append(0)
+        return fn
+    }
+
+    func dword_to_bytes(val: int) -> bytes {
+        return [
+            val & 0xFF,
+            (val >> 8) & 0xFF,
+            (val >> 16) & 0xFF,
+            (val >> 24) & 0xFF
+        ]
+    }
+
+    func word_to_bytes(val: int) -> bytes {
+        return [
+            val & 0xFF,
+            (val >> 8) & 0xFF
+        ]
+    }
+}
