@@ -1,0 +1,23 @@
+capsule CLI {
+    import BuildSystem
+
+    func run(args: list<string>) {
+        if args.length == 0 {
+            say("Usage: meraasm <entry.asm> [other.asm ...]")
+            return
+        }
+        BuildSystem.build_project(args)
+        say("Build complete.")
+    }
+}
+
+capsule Main {
+    import CLI
+
+    func main() {
+        val args = get_cli_args()
+        CLI.run(args)
+    }
+}
+
+Main.main()
