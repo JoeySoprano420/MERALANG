@@ -1,58 +1,128 @@
 capsule PEBuilder {
-    // Builds PE headers, sections, and integrates import thunk stubs for Windows DLLs
+    // Constants for PE Header sizes and offsets
+    const DOS_STUB_SIZE = 128
+    const PE_HEADER_OFFSET = 0x80
+    const SECTION_ALIGNMENT = 0x1000
+    const FILE_ALIGNMENT = 0x200
 
-    func build_pe_file(code_section: bytes, import_table: bytes) -> bytes {
-        var pe_file = bytes()
+    func build_pe_header(code_size: int, import_size: int) -> bytes {
+        var pe = bytes()
 
-        pe_file.extend(build_dos_stub())
-        pe_file.extend(build_pe_signature())
-        pe_file.extend(build_coff_header())
-        pe_file.extend(build_optional_header(code_section.length + import_table.length))
-        pe_file.extend(build_section_headers(code_section.length, import_table.length))
-        pe_file.extend(pad_to_offset(0x400))  // Align sections start
+        // DOS Stub (128 bytes)
+        pe.extend(build_dos_stub())
 
-        // Code section
-        pe_file.extend(code_section)
-        pe_file.extend(pad_to_offset(0x2000))  // Align import table
+        // PE Signature "PE\0\0"
+        pe.extend([0x50, 0x45, 0x00, 0x00])
 
-        // Import Table Section
-        pe_file.extend(import_table)
+        // COFF File Header (20 bytes)
+        pe.extend(build_coff_file_header())
 
-        return pe_file
+        // Optional Header (standard + windows fields)
+        pe.extend(build_optional_header(code_size + import_size))
+
+        // Section Headers (code + import)
+        pe.extend(build_section_headers(code_size, import_size))
+
+        return pe
     }
 
-    func build_import_table() -> bytes {
-        var import_table = bytes()
-        import_table.extend(build_import_descriptors())
-        import_table.extend(build_import_lookup_tables())
-        import_table.extend(build_thunk_stubs())
-        import_table.extend(build_dll_and_function_names())
-        return import_table
+    func build_dos_stub() -> bytes {
+        var stub = bytes(DOS_STUB_SIZE)
+        stub[0] = 0x4D  // 'M'
+        stub[1] = 0x5A  // 'Z'
+        // Fill remaining with zeros or a minimal DOS stub executable
+        stub[0x3C] = PE_HEADER_OFFSET & 0xFF
+        stub[0x3D] = (PE_HEADER_OFFSET >> 8) & 0xFF
+        stub[0x3E] = (PE_HEADER_OFFSET >> 16) & 0xFF
+        stub[0x3F] = (PE_HEADER_OFFSET >> 24) & 0xFF
+        return stub
     }
 
-    // Stub: Implement the detailed layouts per PE/COFF spec, including:
-    // - IMAGE_IMPORT_DESCRIPTOR array (with null terminator)
-    // - Import Lookup Table and Import Address Table (thunk arrays)
-    // - DLL name strings
-    // - Function name hint/name arrays
-    // See Microsoft PE/COFF specification for exact byte layouts.
-
-    func pad_to_offset(offset: int) -> bytes {
-        var padding = bytes()
-        while pe_file.length < offset {
-            padding.append(0)
-        }
-        return padding
+    func build_coff_file_header() -> bytes {
+        var header = bytes(20)
+        header[0] = 0x4C  // Machine type: x86_64 = 0x8664 (little endian)
+        header[1] = 0x86
+        header[2] = 0x01  // Number of sections = 1 or 2
+        header[3] = 0x00
+        // Timestamp, symbol table, etc. zeros for simplicity
+        // Size of optional header
+        header[16] = 0xF0  // 240 bytes for PE32+
+        header[17] = 0x00
+        // Characteristics (Executable, Large Address Aware)
+        header[18] = 0x02 | 0x20  // Executable Image | Large Address Aware
+        header[19] = 0x00
+        return header
     }
 
-    // Example implementations for stub functions:
-    func build_dos_stub() -> bytes { ... }
-    func build_pe_signature() -> bytes { ... }
-    func build_coff_header() -> bytes { ... }
-    func build_optional_header(size: int) -> bytes { ... }
-    func build_section_headers(code_size: int, import_size: int) -> bytes { ... }
-    func build_import_descriptors() -> bytes { ... }
-    func build_import_lookup_tables() -> bytes { ... }
-    func build_thunk_stubs() -> bytes { ... }
-    func build_dll_and_function_names() -> bytes { ... }
+    func build_optional_header(image_size: int) -> bytes {
+        var optional = bytes(240)
+        optional[0] = 0x0B  // Magic PE32+
+        optional[1] = 0x02
+        // AddressOfEntryPoint
+        optional[16] = 0x00  // Fill in later
+        // BaseOfCode
+        optional[20] = 0x1000
+        // ImageBase (default 0x140000000)
+        // SectionAlignment
+        optional[32] = SECTION_ALIGNMENT & 0xFF
+        optional[33] = (SECTION_ALIGNMENT >> 8) & 0xFF
+        optional[34] = (SECTION_ALIGNMENT >> 16) & 0xFF
+        optional[35] = (SECTION_ALIGNMENT >> 24) & 0xFF
+        // FileAlignment
+        optional[36] = FILE_ALIGNMENT & 0xFF
+        optional[37] = (FILE_ALIGNMENT >> 8) & 0xFF
+        // SizeOfImage
+        val size_image = ((image_size + SECTION_ALIGNMENT - 1) / SECTION_ALIGNMENT) * SECTION_ALIGNMENT
+        optional[56] = size_image & 0xFF
+        optional[57] = (size_image >> 8) & 0xFF
+        optional[58] = (size_image >> 16) & 0xFF
+        optional[59] = (size_image >> 24) & 0xFF
+        // DataDirectories (Imports etc.) filled later
+        return optional
+    }
+
+    func build_section_headers(code_size: int, import_size: int) -> bytes {
+        var headers = bytes(40 * 2)  // Two sections: .text and .idata
+
+        // .text section header
+        headers[0..8] = ".text\0\0\0".encode_utf8()
+        val text_size_raw = ((code_size + FILE_ALIGNMENT - 1) / FILE_ALIGNMENT) * FILE_ALIGNMENT
+        val text_size_virtual = ((code_size + SECTION_ALIGNMENT - 1) / SECTION_ALIGNMENT) * SECTION_ALIGNMENT
+        // VirtualSize
+        headers[8..12] = int_to_bytes(code_size)
+        // VirtualAddress
+        headers[12..16] = int_to_bytes(0x1000)
+        // SizeOfRawData
+        headers[16..20] = int_to_bytes(text_size_raw)
+        // PointerToRawData
+        headers[20..24] = int_to_bytes(0x400)
+        // Characteristics: Code | Executable | Readable
+        headers[36..40] = int_to_bytes(0x60000020)
+
+        // .idata section header
+        headers[40..48] = ".idata\0\0\0".encode_utf8()
+        val idata_size_raw = ((import_size + FILE_ALIGNMENT - 1) / FILE_ALIGNMENT) * FILE_ALIGNMENT
+        val idata_size_virtual = ((import_size + SECTION_ALIGNMENT - 1) / SECTION_ALIGNMENT) * SECTION_ALIGNMENT
+        // VirtualSize
+        headers[48..52] = int_to_bytes(import_size)
+        // VirtualAddress
+        headers[52..56] = int_to_bytes(0x2000)
+        // SizeOfRawData
+        headers[56..60] = int_to_bytes(idata_size_raw)
+        // PointerToRawData
+        headers[60..64] = int_to_bytes(0x2400)
+        // Characteristics: Initialized Data | Readable | Writable
+        headers[76..80] = int_to_bytes(0xC0000040)
+
+        return headers
+    }
+
+    func int_to_bytes(val: int) -> bytes {
+        return [
+            val & 0xFF,
+            (val >> 8) & 0xFF,
+            (val >> 16) & 0xFF,
+            (val >> 24) & 0xFF
+        ]
+    }
 }
