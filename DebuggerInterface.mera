@@ -1,24 +1,24 @@
 capsule DebuggerInterface {
-    var symbol_table: dict<int, string> = {}
+    var source_map: dict<int, string> = {}
     var breakpoints: set<int> = {}
 
-    func record_symbol(address: int, symbol: string) {
-        symbol_table[address] = symbol
+    func record_source(address: int, line: string) {
+        source_map[address] = line
     }
 
-    func add_breakpoint(address: int) {
-        breakpoints.add(address)
+    func add_breakpoint(addr: int) {
+        breakpoints.add(addr)
     }
 
-    func remove_breakpoint(address: int) {
-        breakpoints.remove(address)
+    func remove_breakpoint(addr: int) {
+        breakpoints.remove(addr)
     }
 
-    func has_breakpoint(address: int) -> bool {
-        return breakpoints.contains(address)
+    func check_breakpoint(addr: int) -> bool {
+        return breakpoints.contains(addr)
     }
 
-    func lookup_symbol(address: int) -> string? {
-        return symbol_table.get(address, null)
+    func get_source_line(addr: int) -> string? {
+        return source_map.get(addr, null)
     }
 }
