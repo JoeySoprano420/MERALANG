@@ -1,0 +1,20 @@
+capsule CacheManager {
+    var macro_cache: dict<string, list<Instruction>> = {}
+    var opcode_cache: dict<string, bytes> = {}
+
+    func cache_macro_expansion(macro_hash: string, instructions: list<Instruction>) {
+        macro_cache[macro_hash] = instructions
+    }
+
+    func get_cached_macro(macro_hash: string) -> list<Instruction>? {
+        return macro_cache.get(macro_hash, null)
+    }
+
+    func cache_opcode(key: string, bytes: bytes) {
+        opcode_cache[key] = bytes
+    }
+
+    func get_cached_opcode(key: string) -> bytes? {
+        return opcode_cache.get(key, null)
+    }
+}
