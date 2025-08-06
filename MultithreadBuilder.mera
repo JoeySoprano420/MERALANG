@@ -1,0 +1,52 @@
+capsule MultiThreadedBuilder {
+    import ConcurrencyManager
+    import Lexer
+    import Parser
+    import MacroEngine
+    import OpcodeDatabase
+    import Assembler
+    import Linker
+
+    func build_project(sources: list<string>) {
+        ConcurrencyManager.init_thread_pool()
+
+        // Step 1: Lex & Parse all sources concurrently
+        val parse_tasks = []
+        for src in sources {
+            parse_tasks.append(ConcurrencyManager.launch_lex_parse(src))
+        }
+        val parsed_results = ConcurrencyManager.wait_all_tasks()
+
+        // Step 2: Macro expansion concurrently with caching
+        var expanded_instructions = []
+        for instructions in parsed_results {
+            val expanded = []
+            for instr in instructions {
+                if MacroEngine.active_macros.contains(instr.mnemonic) {
+                    val macro_expanded = MacroEngine.expand_macro(instr.mnemonic, instr.operands.map(op => op.text))
+                    expanded.extend(macro_expanded)
+                } else {
+                    expanded.append(instr)
+                }
+            }
+            expanded_instructions.append(expanded)
+        }
+
+        // Step 3: Assemble all expanded instruction sets concurrently
+        val assembly_tasks = []
+        for instrs in expanded_instructions {
+            assembly_tasks.append(ConcurrencyManager.launch_assemble_module(instrs))
+        }
+        val assembled_binaries = ConcurrencyManager.wait_all_tasks()
+
+        // Step 4: Link all assembled modules into final binary
+        for bin in assembled_binaries {
+            Linker.add_section(".text", bin)
+        }
+        Linker.link()
+
+        // Step 5: Write final executable
+        Assembler.write_exe("final_output.exe")
+        ConcurrencyManager.shutdown()
+    }
+}
