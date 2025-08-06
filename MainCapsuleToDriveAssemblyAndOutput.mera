@@ -1,0 +1,26 @@
+capsule Main {
+    import Lexer
+    import Parser
+    import Assembler
+
+    val sample_source = """
+    start:
+        mov eax, 1
+        call exit_process
+        ret
+
+    exit_process:
+        ret
+    """
+
+    func main() {
+        Lexer.tokenize(sample_source)
+        Parser.parse(sample_source)
+        Assembler.first_pass()
+        Assembler.second_pass()
+        Assembler.write_exe("output.exe")
+        say("Assembled and wrote output.exe")
+    }
+}
+
+Main.main()
