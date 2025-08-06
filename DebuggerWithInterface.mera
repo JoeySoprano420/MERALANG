@@ -1,45 +1,32 @@
 capsule Debugger {
-    // Mapping from instruction address to source line (for disassembly / source view)
+    // --- Debugger Core State ---
     var source_map: dict<int, string> = {}
-
-    // Set of breakpoint addresses
     var breakpoints: set<int> = {}
-
-    // Variables to watch with their current values (e.g., by name)
     var watchpoints: dict<string, int> = {}
-
-    // Current program counter address
     var current_pc: int = 0
-
-    // CPU registers state (e.g., rax, rbx, rcx, ...)
     var registers: dict<string, int64> = {}
 
-    // Record source line for given address (disassembly / debug info)
+    // Record source line for address (disassembly / debug info)
     func record_source(address: int, line: string) {
         source_map[address] = line
     }
 
-    // Add breakpoint at address
+    // Breakpoint management
     func set_breakpoint(addr: int) {
         breakpoints.add(addr)
     }
-
-    // Remove breakpoint at address
     func remove_breakpoint(addr: int) {
         breakpoints.remove(addr)
     }
-
-    // Check if breakpoint exists at address
     func check_breakpoint(addr: int) -> bool {
         return breakpoints.contains(addr)
     }
 
-    // Get source line associated with address
     func get_source_line(addr: int) -> string? {
         return source_map.get(addr, null)
     }
 
-    // Called on each instruction execution with current address
+    // Called on instruction execution
     func on_instruction(addr: int) {
         current_pc = addr
         if check_breakpoint(addr) {
@@ -47,19 +34,71 @@ capsule Debugger {
         }
     }
 
-    // Read register value by name (default 0)
+    // Register accessors
     func read_register(name: string) -> int64 {
         return registers.get(name, 0)
     }
-
-    // Write value to register
     func write_register(name: string, val: int64) {
         registers[name] = val
     }
 
-    // Pause execution - placeholder for UI/CLI interaction
+    // Pause execution placeholder (to be connected to UI or CLI)
     func pause_execution() {
         say("Execution paused at 0x" + current_pc.to_string(16))
-        // Hook in UI or CLI to wait for user commands: step, continue, inspect, etc.
+        // Await user input: step, continue, inspect, etc.
+    }
+
+    // Step execution (stub)
+    func step() {
+        say("Stepping at 0x" + current_pc.to_string(16))
+        // Implement stepping logic here
+    }
+
+    // Continue execution (stub)
+    func continue_execution() {
+        say("Continuing execution from 0x" + current_pc.to_string(16))
+        // Implement continue logic here
+    }
+}
+
+capsule DebuggerGUI {
+    import Debugger
+
+    var is_running: bool = false
+    var current_pc: int = 0
+    var registers: dict<string,int64> = {}
+
+    // Render the debugger window
+    func render() {
+        draw_window("Debugger")
+
+        draw_text("PC: 0x" + current_pc.to_string(16))
+        draw_separator()
+
+        for reg in ["rax","rbx","rcx","rdx","rsi","rdi","rsp","rbp","rip"] {
+            draw_text(reg + ": 0x" + registers.get(reg,0).to_string(16))
+        }
+
+        draw_separator()
+        draw_text("Breakpoints:")
+        for bp in Debugger.breakpoints {
+            draw_text("  0x" + bp.to_string(16))
+        }
+
+        if button("Step") {
+            Debugger.step()
+        }
+        if button("Continue") {
+            Debugger.continue_execution()
+        }
+        if button("Pause") {
+            Debugger.pause_execution()
+        }
+    }
+
+    // Update GUI state from Debugger runtime
+    func update_state(pc: int, regs: dict<string,int64>) {
+        current_pc = pc
+        registers = regs
     }
 }
