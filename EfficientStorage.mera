@@ -1,0 +1,20 @@
+capsule EfficientStorage {
+    // Pre-allocate large buffers for tokens, instructions, opcode tables
+    var token_pool: mera_pool<Token> = mera_pool_create(Token, 100000)
+    var instruction_pool: mera_pool<Instruction> = mera_pool_create(Instruction, 100000)
+
+    func alloc_token(text: string, line: int) -> Token {
+        val t = mera_pool_alloc(token_pool)
+        t.text = text
+        t.line = line
+        return t
+    }
+
+    func alloc_instruction(mnemonic: string, operands: list<string>, line: int) -> Instruction {
+        val i = mera_pool_alloc(instruction_pool)
+        i.mnemonic = mnemonic
+        i.operands = operands
+        i.line = line
+        return i
+    }
+}
