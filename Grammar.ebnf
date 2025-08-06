@@ -1,0 +1,64 @@
+// MeraLang Grammar (EBNF)
+
+program        ::= { statement } EOF ;
+
+statement      ::= label_decl
+                 | capsule_decl
+                 | macro_decl
+                 | instruction
+                 | directive
+                 | NEWLINE ;
+
+label_decl     ::= identifier ":" ;
+
+capsule_decl   ::= "capsule" identifier "{" { statement } "}" ;
+
+macro_decl     ::= "macro" identifier "(" [ param_list ] ")" block ;
+
+param_list     ::= identifier { "," identifier } ;
+
+block          ::= "{" { statement } "}" ;
+
+instruction    ::= mnemonic operand_list NEWLINE ;
+
+mnemonic       ::= IDENTIFIER ;
+
+operand_list   ::= [ operand { "," operand } ] ;
+
+operand        ::= register
+                 | immediate
+                 | label_ref
+                 | string_literal ;
+
+register       ::= ("eax" | "ebx" | "ecx" | "edx"
+                   | "esi" | "edi" | "esp" | "ebp"
+                   | "rax" | "rbx" | "rcx" | "rdx"
+                   | "rsi" | "rdi" | "rsp" | "rbp"
+                   | "r8"  | "r9"  | "r10" | "r11"
+                   | "r12" | "r13" | "r14" | "r15") ;
+
+immediate      ::= integer_literal
+                 | hex_literal ;
+
+label_ref      ::= identifier ;
+
+directive      ::= "#" IDENTIFIER [ directive_args ] NEWLINE ;
+
+directive_args ::= { IDENTIFIER | STRING | NUMBER } ;
+
+integer_literal ::= DIGIT { DIGIT } ;
+
+hex_literal    ::= "0x" HEXDIGIT { HEXDIGIT } ;
+
+string_literal ::= "\"" { any_char_except_quote } "\"" ;
+
+identifier     ::= LETTER { LETTER | DIGIT | "_" } ;
+
+NEWLINE       ::= "\r"? "\n" ;
+
+DIGIT         ::= "0".."9" ;
+HEXDIGIT      ::= DIGIT | "a".."f" | "A".."F" ;
+LETTER        ::= "a".."z" | "A".."Z" ;
+
+// Helpers
+any_char_except_quote ::= ? any character except " ? ;
