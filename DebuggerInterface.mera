@@ -1,0 +1,14 @@
+capsule DebuggerInterface {
+    // Embed debug info structures in PE file
+    // Support source line mappings, symbol lookups, breakpoints
+
+    var debug_symbols: dict<int, string> = {} // addr -> source line
+
+    func record_source_line(address: int, line: string) {
+        debug_symbols[address] = line
+    }
+
+    func lookup_symbol(address: int) -> string? {
+        return debug_symbols.get(address, null)
+    }
+}
