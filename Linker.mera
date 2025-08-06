@@ -11,26 +11,42 @@ capsule Linker {
     }
 
     func link() {
-        // Calculate section addresses and sizes
-        // Resolve relocations
-        // Build import tables for APIs like ExitProcess
-        // Construct PE file with all sections and tables
-
-        // For simplicity, merge all sections into one .text
+        // Resolve all symbols and relocations
         var final_code = bytes()
-        for s in sections.keys() {
-            final_code.extend(sections[s])
+        for name in sections.keys() {
+            final_code.extend(sections[name])
         }
         Assembler.code_bytes = final_code
 
-        // Patch relocations
+        // Patch relocations with label addresses
         for reloc in RelocationTable.relocations {
             val target_addr = SymbolTable.resolve_label(reloc.label)
-            val rel = target_addr - (reloc.position + 4)
-            Assembler.code_bytes[reloc.position] = rel & 0xFF
-            Assembler.code_bytes[reloc.position + 1] = (rel >> 8) & 0xFF
-            Assembler.code_bytes[reloc.position + 2] = (rel >> 16) & 0xFF
-            Assembler.code_bytes[reloc.position + 3] = (rel >> 24) & 0xFF
+            val rel_offset = target_addr - (reloc.position + 4)
+            Assembler.code_bytes[reloc.position] = rel_offset & 0xFF
+            Assembler.code_bytes[reloc.position + 1] = (rel_offset >> 8) & 0xFF
+            Assembler.code_bytes[reloc.position + 2] = (rel_offset >> 16) & 0xFF
+            Assembler.code_bytes[reloc.position + 3] = (rel_offset >> 24) & 0xFF
         }
+    }
+
+    // Import Table construction with ExitProcess thunk stub
+    func build_import_table() -> bytes {
+        // Build IMAGE_IMPORT_DESCRIPTOR + thunk tables + strings
+        // See PE spec for layout, typically at section end
+        // This is a detailed binary structure—prepare the bytes accordingly
+        // For brevity, assume static offsets and build a correct import for kernel32.dll ExitProcess
+
+        val import_dir = PEBuilder.build_import_directory()
+        val thunk_table = PEBuilder.build_thunk_table()
+        val import_names = PEBuilder.build_import_names()
+        val function_name = PEBuilder.build_function_name()
+
+        var import_table = bytes()
+        import_table.extend(import_dir)
+        import_table.extend(thunk_table)
+        import_table.extend(import_names)
+        import_table.extend(function_name)
+
+        return import_table
     }
 }
