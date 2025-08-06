@@ -1,0 +1,76 @@
+capsule WindowsImportThunks {
+    // Build import directory, IAT, and thunk stubs for common DLLs/functions
+
+    struct ImportEntry {
+        dll_name: string
+        functions: list<string>
+    }
+
+    var imports: list<ImportEntry> = [
+        ImportEntry{dll_name: "kernel32.dll", functions: ["ExitProcess", "GetLastError", "CreateFileA"]},
+        ImportEntry{dll_name: "user32.dll", functions: ["MessageBoxA", "DispatchMessageA"]},
+        ImportEntry{dll_name: "gdi32.dll", functions: ["CreateCompatibleDC", "DeleteDC"]}
+    ]
+
+    func build_import_directory() -> bytes {
+        var dir = bytes()
+        var rva_table = 0x1000  // Example RVA start
+        var thunk_table_rva = rva_table + imports.length * 20  // Each descriptor 20 bytes
+
+        // Build IMAGE_IMPORT_DESCRIPTOR for each DLL + null terminator
+        for imp in imports {
+            dir.extend(dword_to_bytes(thunk_table_rva)) // Import Lookup Table RVA
+            dir.extend(dword_to_bytes(0))               // TimeDateStamp
+            dir.extend(dword_to_bytes(0))               // ForwarderChain
+            dir.extend(dword_to_bytes(rva_table + thunk_table_rva)) // Name RVA (to DLL string)
+            dir.extend(dword_to_bytes(thunk_table_rva)) // Import Address Table RVA
+            thunk_table_rva += (imp.functions.length + 1) * 8
+        }
+        // Null descriptor
+        for _ in 0..19 { dir.append(0) }
+        return dir
+    }
+
+    func build_thunk_tables() -> bytes {
+        var thunk_tables = bytes()
+        for imp in imports {
+            for fn in imp.functions {
+                thunk_tables.extend(dword_to_bytes(0x80000000)) // Hint/name RVA placeholder with high bit set
+            }
+            thunk_tables.extend(dword_to_bytes(0)) // Null terminator
+        }
+        return thunk_tables
+    }
+
+    func build_names() -> bytes {
+        var names = bytes()
+        for imp in imports {
+            names.extend(imp.dll_name.encode_utf8())
+            names.append(0)
+        }
+        for imp in imports {
+            for fn in imp.functions {
+                names.extend(word_to_bytes(0)) // Hint = 0
+                names.extend(fn.encode_utf8())
+                names.append(0)
+            }
+        }
+        return names
+    }
+
+    func dword_to_bytes(val: int) -> bytes {
+        return [
+            val & 0xFF,
+            (val >> 8) & 0xFF,
+            (val >> 16) & 0xFF,
+            (val >> 24) & 0xFF
+        ]
+    }
+
+    func word_to_bytes(val: int) -> bytes {
+        return [
+            val & 0xFF,
+            (val >> 8) & 0xFF
+        ]
+    }
+}
