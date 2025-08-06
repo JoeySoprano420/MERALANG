@@ -1,0 +1,27 @@
+capsule CLI {
+    import Lexer
+    import Parser
+    import MacroProcessor
+    import Assembler
+    import Linker
+
+    func run(args: list<string>) {
+        if args.length == 0 {
+            say("Usage: meraasm input.asm [-o output.exe]")
+            return
+        }
+        val filename = args[0]
+        val output = args.length > 2 && args[1] == "-o" ? args[2] : "a.exe"
+
+        val source = file_read_text(filename)
+        Lexer.tokenize(source)
+        Parser.parse()
+        MacroProcessor.expand_macros()
+        Assembler.first_pass()
+        Assembler.second_pass()
+        Linker.add_section(".text", Assembler.code_bytes)
+        Linker.link()
+        Assembler.write_exe(output)
+        say("Assembled " + filename + " -> " + output)
+    }
+}
