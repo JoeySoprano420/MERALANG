@@ -1,29 +1,56 @@
 capsule JITCompiler {
-    // Store compiled IR or native bytecode for macros & opcode matches
-    var compiled_macros: dict<string, CompiledMacro> = {}
-    var compiled_opcodes: dict<string, CompiledOpcode> = {}
+    import Parser
+    import OpcodeDatabase
+    import CacheManager
 
-    func compile_macro(macro_source: string) -> CompiledMacro {
-        // Translate macro source to optimized IR or native instructions
-        // Placeholder for real compile steps
-        val compiled = new CompiledMacro(macro_source)
-        compiled_macros[macro_source] = compiled
-        return compiled
+    // IR representation for compiled macros
+    struct MacroIR {
+        instructions: list<Parser.Instruction>
+        compiled_binary: bytes
     }
 
-    func run_macro(compiled: CompiledMacro, args: list<string>) -> list<Instruction> {
-        // Efficiently expand macro using compiled code
-        return compiled.execute(args)
+    var macro_ir_cache: dict<string, MacroIR> = {}
+
+    // Compile macro source text into IR and binary
+    func compile_macro(macro_name: string, macro_source: string) -> MacroIR {
+        if macro_ir_cache.contains_key(macro_name) {
+            return macro_ir_cache[macro_name]
+        }
+
+        // Parse macro source to instructions (simplified)
+        Lexer.tokenize(macro_source)
+        Parser.parse()
+        val instructions = Parser.instructions.clone()
+
+        // Encode instructions to binary
+        var binary = bytes()
+        var current_addr = 0
+        for instr in instructions {
+            val encoded = OpcodeDatabase.encode(instr, current_addr)
+            binary.extend(encoded)
+            current_addr += encoded.length
+        }
+
+        val ir = MacroIR{instructions: instructions, compiled_binary: binary}
+        macro_ir_cache[macro_name] = ir
+        return ir
     }
 
-    func compile_opcode_pattern(pattern: string) -> CompiledOpcode {
-        // Compile operand matching and encoding to optimized code
-        val compiled = new CompiledOpcode(pattern)
-        compiled_opcodes[pattern] = compiled
-        return compiled
-    }
-
-    func execute_opcode(compiled: CompiledOpcode, operands: list<Operand>) -> bytes {
-        return compiled.encode(operands)
+    // Execute macro IR with parameters, returning expanded instructions
+    func execute_macro_ir(ir: MacroIR, params: dict<string,string>) -> list<Parser.Instruction> {
+        // Substitute parameters in instructions
+        val expanded = []
+        for instr in ir.instructions {
+            val new_ops = []
+            for op in instr.operands {
+                if params.contains_key(op.text) {
+                    new_ops.append(Parser.Operand{text: params[op.text], type: op.type})
+                } else {
+                    new_ops.append(op)
+                }
+            }
+            expanded.append(Parser.Instruction{mnemonic: instr.mnemonic, operands: new_ops, line: instr.line})
+        }
+        return expanded
     }
 }
