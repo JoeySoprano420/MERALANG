@@ -9,4 +9,4 @@ We pledge to be respectful, empathetic, and inclusive.
 - Personal attacks
 
 ## 📣 Reporting
-Please report violations by opening a confidential issue or emailing support@meralang.dev.
+Please report violations by opening a confidential issue 
